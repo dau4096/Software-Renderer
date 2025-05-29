@@ -71,14 +71,19 @@ namespace utils {
 
 	struct Triangle {
 		alignas(16) glm::vec3 vertexA, vertexB, vertexC;
-		alignas(16) glm::vec3 colour;
+		alignas(8) glm::vec2 uvA, uvB, uvC;
+
+		alignas(4) int texID;
 		alignas(4) int valid;
-		alignas(4) int _padding[3];
+		alignas(8) glm::vec2 _padding;
 
-		Triangle() : vertexA(), vertexB(), vertexC(), colour(), valid(0), _padding() {}
+		Triangle() : vertexA(), vertexB(), vertexC(), texID(0), valid(0), _padding() {}
 
-		Triangle(glm::vec3 vA, glm::vec3 vB, glm::vec3 vC, glm::vec3 colour)
-			: vertexA(vA), vertexB(vB), vertexC(vC), colour(colour), valid(1), _padding() {}
+		Triangle(glm::vec3 vA, glm::vec2 uvA, glm::vec3 vB, glm::vec2 uvB, glm::vec3 vC, glm::vec2 uvC, int texID)
+			: vertexA(vA), vertexB(vB), vertexC(vC),
+			  uvA(uvA), uvB(uvB), uvC(uvC),
+			  texID(texID),
+			  valid(1), _padding() {}
 	};
 
 

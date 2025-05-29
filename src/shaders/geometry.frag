@@ -3,6 +3,7 @@
 
 
 layout(rgba32f, binding=0) uniform image2D renderedFrame;
+layout(binding=0) uniform sampler2DArray textureArray;
 
 uniform mat4 pvmMatrix;
 uniform float zNear;
@@ -10,17 +11,21 @@ uniform float zFar;
 
 struct Triangle {
 	vec3 vertexA, vertexB, vertexC;
-	vec3 colour;
+	vec2 uvA, uvB, uvC;
+
+	int texID;
 	int valid;
+	vec2 _padding;
 };
 layout(std140, binding=0) uniform triUBO {
 	Triangle triangles[512];
 };
 
 struct TriScreen {
-	ivec2 minBB, maxBB;
-	vec3 sVertexA, sVertexB, sVertexC;
+	vec4 sVertexA, sVertexB, sVertexC;
 	vec2 edgeA, edgeB, edgeC;
+	ivec2 minBB, maxBB;
+	float areaABC;
 	bool valid;
 };
 
@@ -31,32 +36,48 @@ vec4 fragColour;
 
 const float INF = 0xFFFFFF;
 const float EPSILON = 1e-4f;
-const dvec2 INVALIDdv2 = dvec2(INF, INF);
-const vec2 INVALIDv2 = vec2(INF, INF);
-const vec3 INVALIDv3 = vec3(INF, INF, INF);
+const vec4 INVALIDv4 = vec4(INF, INF, INF, INF);
 
 
-vec3 project(vec3 vertex) {
+
+//Simple "shader" to be applied to every valid frag.
+//Shader-ception!
+void fragShader(out vec3 _fragColour, Triangle tri, vec2 UV, float depth) {
+	//return vec3(UV.xy, 0.0f);
+	_fragColour = texture(textureArray, vec3(UV.xy, tri.texID)).rgb;
+}
+
+
+
+float area(vec2 a, vec2 b, vec2 c) {
+	return (c.x-a.x)*(b.y-a.y)-(c.y-a.y)*(b.x-a.x);
+}
+
+
+
+vec4 project(vec3 vertex) {
 	vec4 vertexV4 = vec4(vertex.xyz, 1.0f);
 	vec4 ndc = pvmMatrix * vertexV4;
 	ndc.xyz /= ndc.w;
-	if (ndc.z < -1 || ndc.z > 1) {return INVALIDv3;}
-	return vec3(
+	if (ndc.z < -1 || ndc.z > 1) {return INVALIDv4;}
+	return vec4(
 		(ndc.x + 1.0f) / 2.0f * renderResolution.x,
 		(1.0f - ndc.y) / 2.0f * renderResolution.y,
-		ndc.z
+		ndc.z * ndc.w, ndc.w
 	);
 }
+
+
 
 TriScreen createTriScreen(Triangle thisTri) {
 	TriScreen triS;
 	triS.valid = false;
 	triS.sVertexA = project(thisTri.vertexA);
-	if (triS.sVertexA == INVALIDv3) {return triS;}
+	if (triS.sVertexA == INVALIDv4) {return triS;}
 	triS.sVertexB = project(thisTri.vertexB);
-	if (triS.sVertexB == INVALIDv3) {return triS;}
+	if (triS.sVertexB == INVALIDv4) {return triS;}
 	triS.sVertexC = project(thisTri.vertexC);
-	if (triS.sVertexC == INVALIDv3) {return triS;}
+	if (triS.sVertexC == INVALIDv4) {return triS;}
 
 	triS.edgeA = triS.sVertexB.xy - triS.sVertexA.xy;
 	triS.edgeB = triS.sVertexC.xy - triS.sVertexB.xy;
@@ -65,10 +86,24 @@ TriScreen createTriScreen(Triangle thisTri) {
 	triS.minBB = ivec2(min(triS.sVertexA.xy, min(triS.sVertexB.xy, triS.sVertexC.xy)));
 	triS.maxBB = ivec2(max(triS.sVertexA.xy, max(triS.sVertexB.xy, triS.sVertexC.xy)));
 
+	triS.areaABC = area(triS.sVertexA.xy, triS.sVertexB.xy, triS.sVertexC.xy);
+
 	triS.valid = true;
 
 	return triS;
 }
+
+
+
+vec3 baryCentric(TriScreen triS) {
+	float baryA = area(fragPosition.xy, triS.sVertexB.xy, triS.sVertexC.xy) / triS.areaABC;
+	float baryB = area(fragPosition.xy, triS.sVertexC.xy, triS.sVertexA.xy) / triS.areaABC;
+	float baryC = 1.0f - baryA - baryB;
+
+	return vec3(baryA, baryB, baryC);
+}
+
+
 
 bool inTri(TriScreen triS) {
 	vec2 p = fragPosition;
@@ -86,12 +121,28 @@ bool inTri(TriScreen triS) {
 	return (w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0) || (w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0);
 }
 
-void drawTriangles() {
+
+
+float baryDepth(vec3 bCW, TriScreen triS) {
+	float weightSum = triS.sVertexA.w + triS.sVertexB.w + triS.sVertexC.w;
+	return (triS.sVertexA.z * bCW.x) + (triS.sVertexB.z * bCW.y) + (triS.sVertexC.z * bCW.z) / weightSum;	
+}
+
+vec2 baryUV(vec3 bCW, Triangle tri) {
+    return bCW.x * tri.uvA + bCW.y * tri.uvB + bCW.z * tri.uvC;
+}
+
+
+
+void drawTriangles(inout float minDepth) {
 	for (int index=0; index<512; index++) {
+
 		Triangle thisTri = triangles[index];
 		if (thisTri.valid <= 0) {break; /* End of valid triangles. */}
+
 		TriScreen triS = createTriScreen(thisTri);
 		if (!triS.valid) {continue; /* Invalid screen position. */}
+
 		if ((triS.maxBB.x < 0.0f) || (triS.maxBB.y < 0.0f) || (triS.minBB.x > renderResolution.x) || (triS.minBB.y > renderResolution.y)) {
 			continue;
 		}
@@ -99,25 +150,31 @@ void drawTriangles() {
 			fragPosition.y < triS.minBB.y || fragPosition.y > triS.maxBB.y) {
 			continue;
 		}
+
 		if (inTri(triS)) {
-			fragColour.rgb = vec3(1, 0, 1);
-			//minDepth = interpDepth;
+			vec3 bCW = baryCentric(triS);
+			float interpDepth = baryDepth(bCW, triS);
+			if (interpDepth < minDepth) {
+				minDepth = interpDepth;
+				vec2 UV = baryUV(bCW, thisTri);
+				fragShader(fragColour.rgb, thisTri, UV, interpDepth);
+			}
 		}
-		break;
+
 	}
 }
 
 
 
 void main() {
-	fragPosition = gl_FragCoord.xy;
 	renderResolution = imageSize(renderedFrame);
-	ivec2 framePosition = ivec2(fragPosition);
+	fragPosition = vec2(gl_FragCoord.x, renderResolution.y - gl_FragCoord.y);
+	ivec2 framePosition = ivec2(gl_FragCoord.xy);
 	float minDepth = INF;
 	fragColour = vec4(0.0f, 0.0f, 0.0f, minDepth);
 
 
-	drawTriangles();
+	drawTriangles(minDepth);
 
 
 	vec4 finalFragColour = vec4(fragColour.rgb, minDepth);

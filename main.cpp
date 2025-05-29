@@ -20,6 +20,16 @@ std::array<int, 16> monitoredKeys = { //16 should cover necessary keys.
 };
 
 
+std::array<std::string, display::TEXTURE_ARRAY_MAX_LAYERS> textureNames = {
+	"a", "b", "c",
+	"mus2", "osa", "piloten", "s_t_a_r_e",
+	"switch", "tabs=fish", "lamp",
+	"brick", "brick2", "brick3"
+	"metal", "metal2", "planks",
+	"planks2", "quake"
+};
+
+
 
 std::array<utils::Triangle, constants::MAX_TRIANGLES> triangleData;
 glm::mat4 pvmMatrix;
@@ -42,10 +52,31 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 void tmpFillTris(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triangleData) {
 	triangleData->at(0) = Triangle(
-		glm::vec3(-1.0f, 0.0f, 0.0f), 	//vA
-		glm::vec3( 1.0f, 0.0f, 0.0f), 	//vB
-		glm::vec3( 0.0f, 0.0f, 1.0f), 	//vC
-		glm::vec3( 1.0f, 0.0f, 1.0f)	//Colour
+		glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
+		glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec2(-1.0f, 0.0f), 	//vB
+		glm::vec3( 0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
+		0 	//texID
+	);
+	triangleData->at(1) = Triangle(
+		glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
+		glm::vec3( 0.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f), 	//vB
+		glm::vec3( 0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
+		1 	//texID
+	);
+
+
+	triangleData->at(2) = Triangle(
+		glm::vec3( 1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
+		glm::vec3( 1.0f, 0.0f, 1.0f), glm::vec2(-1.0f, 0.0f), 	//vB
+		glm::vec3( 2.0f,-1.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
+		5 	//texID
+	);
+
+	triangleData->at(3) = Triangle(
+		glm::vec3( 1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
+		glm::vec3( 2.0f,-1.0f, 0.0f), glm::vec2(0.0f, 1.0f), 	//vB
+		glm::vec3( 2.0f,-1.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
+		5 	//texID
 	);
 }
 
@@ -69,6 +100,8 @@ int main() {
 	Camera camera;
 
 	tmpFillTris(&triangleData);
+
+	GLuint textureArray = render::createTexture2DArray(textureNames);
 
 
 	GLuint triangleUBO = render::createTriangleUBO();
@@ -162,13 +195,10 @@ int main() {
 		double cursorXDelta = cursorXPos - cursorXPosPrev;
 		double cursorYDelta = cursorYPos - cursorYPosPrev;
 		camera.angle.x += cursorXDelta * (config::TURN_SPEED_CURSOR);
-		camera.angle.y += cursorYDelta * (config::TURN_SPEED_CURSOR);
+		camera.angle.y -= cursorYDelta * (config::TURN_SPEED_CURSOR);
 		camera.angle.x = fmod(camera.angle.x + constants::TWO_PI, constants::TWO_PI);
 		camera.angle.y = glm::clamp(camera.angle.y, -constants::HALF_PI, constants::HALF_PI);
 
-		printVec2(camera.angle);
-		printVec3(camera.position);
-		cout<<endl;
 
 
 		render::updateTriangleUBO(triangleUBO, &triangleData);
@@ -176,8 +206,6 @@ int main() {
 		viewMatrix = render::viewMatrix(camera);
 		pvmMatrix = projMatrix * viewMatrix * modelMatrix;
 
-		//drawTriangles();
-		//pause();
 
 
 
@@ -185,6 +213,7 @@ int main() {
 		glViewport(0, 0, display::RENDER_RESOLUTION.x, display::RENDER_RESOLUTION.y);
 		glUseProgram(geoShader);
 		glBindImageTexture(0, renderedFrameID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+		glBindTextureUnit(0, textureArray);
 
 		GLint MVPMatLocation = glGetUniformLocation(geoShader, "pvmMatrix");
 		GLint zNearLocation = glGetUniformLocation(geoShader, "zNear");

@@ -20,6 +20,7 @@ namespace render {
 
     GLuint createTexture2D(int width, int height, GLint imageFormat=GL_RGBA32F);
     GLuint loadTextureFile(std::string fileName);
+    GLuint createTexture2DArray(std::array<std::string, display::TEXTURE_ARRAY_MAX_LAYERS>& textureNames);
 
 
     GLuint getVAO();

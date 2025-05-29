@@ -105,17 +105,6 @@ GLuint createShaderProgram(std::string name, bool hasVertexSource=true) {
 glm::mat4 projectionMatrix(utils::Camera& camera) {
 	float aspectRatio = static_cast<float>(display::RENDER_RESOLUTION.x) / static_cast<float>(display::RENDER_RESOLUTION.y);
 	return glm::perspective(glm::radians(camera.FOV), aspectRatio, camera.nearZ, camera.farZ);
-	/*
-	float aspectRatio = static_cast<float>(display::RENDER_RESOLUTION.x) / static_cast<float>(display::RENDER_RESOLUTION.y);
-	float F = 1.0f / tan(camera.FOV / 2.0f);
-	float dist = camera.nearZ - camera.farZ;
-	return glm::mat4(
-		F / aspectRatio, 0.0f, 0.0f, 0.0f,
-		0.0f, F, 0.0f, 0.0f,
-		0.0f, 0.0f, -(camera.farZ + camera.nearZ) / dist, -(2.0f * camera.farZ * camera.nearZ) / dist,
-		0.0f, 0.0f, -1.0f, 0.0f
-	);
-	*/
 }
 
 glm::mat4 viewMatrix(utils::Camera& camera) {
@@ -223,6 +212,95 @@ GLuint loadTextureFile(std::string fileName) {
 
 	return textureID;
 }
+
+
+
+GLuint createTexture2DArray(std::array<std::string, display::TEXTURE_ARRAY_MAX_LAYERS>& textureNames) {
+	GLuint sheetArrayID;
+	glGenTextures(1, &sheetArrayID);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, sheetArrayID);
+
+
+	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, display::TEXTURE_RESOLUTION.x, display::TEXTURE_RESOLUTION.y, display::TEXTURE_ARRAY_MAX_LAYERS, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+
+
+
+	int fallbackTextureWidth, fallbackTextureHeight, fallbackTextureChannels;
+	bool usedFallback;
+
+	unsigned char* fallbackTextureData = stbi_load(
+		display::FALLBACK_TEXTURE_PATH,
+		&fallbackTextureWidth, &fallbackTextureHeight,
+		&fallbackTextureChannels, 4
+	);
+
+	if (!fallbackTextureData) {
+		std::cerr << "Failed to load fallback texture : " << stbi_failure_reason() << std::endl;
+		glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+		glDeleteTextures(1, &sheetArrayID);
+		return 0;	
+	}
+
+
+
+	int width, height, channels;
+	int layerIndex = 0;
+	for (const std::string& textureName : textureNames) {
+		if (textureName.empty()) continue;
+		usedFallback = false;
+
+		std::string reportedTextureName = textureName;
+		std::string texturePath = "textures/" + textureName + ".png";
+		unsigned char* textureData = stbi_load(
+			texturePath.c_str(),
+			&width, &height,
+			&channels, 4
+		);
+
+		if (!textureData) {
+			//Use fallback texture.
+			textureData = fallbackTextureData;
+			width = fallbackTextureWidth;
+			height = fallbackTextureHeight;
+			channels = fallbackTextureChannels;
+			reportedTextureName = "FALLBACK_TEXTURE";
+			usedFallback = true;
+		}
+
+
+		if (width != display::TEXTURE_RESOLUTION.x || height != display::TEXTURE_RESOLUTION.y) {
+			std::cerr << "Texture " << reportedTextureName << " has incorrect dimensions (" << width << "x" << height << "). Expected "
+					  << display::TEXTURE_RESOLUTION.x << "x" << display::TEXTURE_RESOLUTION.y << "." << std::endl;
+			stbi_image_free(textureData);
+			continue;
+		}
+
+
+		glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layerIndex, display::TEXTURE_RESOLUTION.x, display::TEXTURE_RESOLUTION.y, 1, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
+
+
+		if (!usedFallback) {
+			stbi_image_free(textureData);
+		}
+
+		layerIndex++;
+		if (layerIndex >= display::TEXTURE_ARRAY_MAX_LAYERS) break;
+	}
+
+	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+
+	stbi_image_free(fallbackTextureData);
+
+	return sheetArrayID;
+}
+
 
 
 

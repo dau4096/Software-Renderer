@@ -39,7 +39,11 @@ namespace display {
 	//Resolutions
 	constexpr glm::ivec2 SCREEN_RESOLUTION = glm::ivec2(640, 480);
 	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(480, 270);
+
+	//Texture Standardisation
 	constexpr glm::ivec2 TEXTURE_RESOLUTION = glm::ivec2(128, 128);
+	constexpr int TEXTURE_ARRAY_MAX_LAYERS = 64;
+	constexpr const char* FALLBACK_TEXTURE_PATH = "textures/fallback-general.png";
 
 
 	//Camera Assorted
