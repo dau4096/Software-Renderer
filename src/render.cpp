@@ -7,7 +7,6 @@ using namespace glm;
 
 
 namespace render {
-//Functions
 
 
 
@@ -42,21 +41,26 @@ GLFWwindow* initializeWindow(int width, int height, const char* title) {
 
 
 
-GLuint compileShader(GLenum shaderType, string filePath) {
-	std::string source = utils::readFile(filePath);
-	const char* src = source.c_str();
-
-	// Create a shader object
+GLuint compileShader(GLenum shaderType, std::string filePath, bool hasInclude=false, std::string includeName="") {
 	GLuint shader = glCreateShader(shaderType);
 	if (shader == 0) {
 		raise("Error: Failed to create shader.");
 		return 0;
 	}
 
-	// Attach the shader source code to the shader object
+
+	std::string source = utils::readFile(filePath);
+	if (hasInclude && (shaderType == GL_FRAGMENT_SHADER)) {
+		size_t includePos = source.find("#include \"" + includeName + "\"");
+		if (includePos != std::string::npos) {
+			std::string includedShader = utils::readFile(includeName);
+			std::string tag = "#include \"" + includeName + "\"";
+			source.replace(includePos, tag.length(), includedShader);
+		}
+	}
+	const char* src = source.c_str();
 	glShaderSource(shader, 1, &src, nullptr);
 
-	// Compile the shader
 	glCompileShader(shader);
 	
 
@@ -72,14 +76,14 @@ GLuint compileShader(GLenum shaderType, string filePath) {
 }
 
 
-GLuint createShaderProgram(std::string name, bool hasVertexSource=true) {
+GLuint createShaderProgram(std::string name, bool hasVertexSource=true, bool hasInclude=false, std::string includeName="") {
 	GLuint vertexShader;
 	if (hasVertexSource) {
 		vertexShader = compileShader(GL_VERTEX_SHADER, "src\\shaders\\"+ name +".vert");
 	} else {
 		vertexShader = compileShader(GL_VERTEX_SHADER, "src\\shaders\\generic.vert");
 	}
-	GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, "src\\shaders\\"+ name +".frag");
+	GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, "src\\shaders\\"+ name +".frag", hasInclude, includeName);
 
 	GLuint shaderProgram = glCreateProgram();
 	glAttachShader(shaderProgram, vertexShader);
@@ -135,6 +139,12 @@ void updateTriangleUBO(GLuint triangleUBO, std::array<utils::Triangle, constants
 	glBindBuffer(GL_UNIFORM_BUFFER, triangleUBO);
 	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, triData->data());
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+
+
+void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath, int textureID=-1) {
+
 }
 
 

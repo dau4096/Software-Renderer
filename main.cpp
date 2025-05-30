@@ -108,7 +108,7 @@ int main() {
 	GLuint renderedFrameID = render::createTexture2D(display::RENDER_RESOLUTION.x, display::RENDER_RESOLUTION.y);
 
 	//Geometry shader
-	GLuint geoShader = render::createShaderProgram("geometry", false);
+	GLuint geoShader = render::createShaderProgram("geometry", false, true, "miniShader.glsl");
 
 	//Display Shader
 	GLuint displayShader = render::createShaderProgram("display");
@@ -236,7 +236,9 @@ int main() {
 		glBindTextureUnit(0, renderedFrameID);
 
 		GLuint screenResLoc = glGetUniformLocation(displayShader, "screenResolution");
+		GLuint texResLoc = glGetUniformLocation(displayShader, "renderResolution");
 		glUniform2i(screenResLoc, currentScreenRes.x, currentScreenRes.y);
+		glUniform2i(texResLoc, display::RENDER_RESOLUTION.x, display::RENDER_RESOLUTION.y);
 
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);

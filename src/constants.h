@@ -38,7 +38,7 @@ namespace config {
 namespace display {
 	//Resolutions
 	constexpr glm::ivec2 SCREEN_RESOLUTION = glm::ivec2(640, 480);
-	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(480, 270);
+	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(960, 540);
 
 	//Texture Standardisation
 	constexpr glm::ivec2 TEXTURE_RESOLUTION = glm::ivec2(128, 128);

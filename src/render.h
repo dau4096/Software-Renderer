@@ -7,7 +7,7 @@
 
 namespace render {
     GLFWwindow* initializeWindow(int width, int height, const char* title);
-    GLuint createShaderProgram(std::string name, bool hasVertexSource=true);
+    GLuint createShaderProgram(std::string name, bool hasVertexSource=true, bool hasInclude=false, std::string includeName="");
 
 
     glm::mat4 projectionMatrix(utils::Camera& camera);
@@ -16,6 +16,7 @@ namespace render {
 
     GLuint createTriangleUBO();
     void updateTriangleUBO(GLuint triangleUBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData);
+    void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath);
 
 
     GLuint createTexture2D(int width, int height, GLint imageFormat=GL_RGBA32F);
