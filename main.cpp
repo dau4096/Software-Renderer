@@ -197,7 +197,7 @@ int main() {
 		camera.angle.x += cursorXDelta * (config::TURN_SPEED_CURSOR);
 		camera.angle.y -= cursorYDelta * (config::TURN_SPEED_CURSOR);
 		camera.angle.x = fmod(camera.angle.x + constants::TWO_PI, constants::TWO_PI);
-		camera.angle.y = glm::clamp(camera.angle.y, -constants::HALF_PI, constants::HALF_PI);
+		camera.angle.y = glm::clamp(camera.angle.y, 0.01f-constants::HALF_PI, constants::HALF_PI-0.01f);
 
 
 

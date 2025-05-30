@@ -113,18 +113,8 @@ glm::mat4 viewMatrix(utils::Camera& camera) {
 		cos(camera.angle.x)*cos(camera.angle.y),
 		sin(camera.angle.y)
 	);
-	glm::vec3 right = glm::vec3(glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f)));
-	glm::vec3 up = glm::cross(right, forward);
 
-	return glm::mat4(
-		right.x,  up.x,  -forward.x,  0.0f,
-		right.y,  up.y,  -forward.y,  0.0f,
-		right.z,  up.z,  -forward.z,  0.0f,
-		-glm::dot(right, camera.position),
-		-glm::dot(up, camera.position),
-		glm::dot(forward, camera.position),
-		1.0f
-	);
+	return glm::lookAt(camera.position, camera.position + forward, glm::vec3(0.0f, 0.0f, 1.0f));
 }
 
 
