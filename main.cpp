@@ -104,7 +104,7 @@ int main() {
 	GLuint textureArray = render::createTexture2DArray(textureNames);
 
 
-	GLuint triangleUBO = render::createTriangleUBO();
+	GLuint triangleSSBO = render::createTriangleSSBO();
 	GLuint renderedFrameID = render::createTexture2D(display::RENDER_RESOLUTION.x, display::RENDER_RESOLUTION.y);
 
 	//Geometry shader
@@ -201,7 +201,7 @@ int main() {
 
 
 
-		render::updateTriangleUBO(triangleUBO, &triangleData);
+		render::updateTriangleSSBO(triangleSSBO, &triangleData);
 
 		viewMatrix = render::viewMatrix(camera);
 		pvmMatrix = projMatrix * viewMatrix * modelMatrix;

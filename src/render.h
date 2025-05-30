@@ -14,8 +14,8 @@ namespace render {
     glm::mat4 viewMatrix(utils::Camera& camera);
     
 
-    GLuint createTriangleUBO();
-    void updateTriangleUBO(GLuint triangleUBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData);
+    GLuint createTriangleSSBO();
+    void updateTriangleSSBO(GLuint triangleSSBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData);
     void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath);
 
 

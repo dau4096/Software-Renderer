@@ -1,5 +1,6 @@
 /* environment.frag */
 #version 460 core
+#extension GL_NV_uniform_buffer_std430_layout : enable
 
 layout(rgba32f, binding=0) uniform image2D renderedFrame;
 
@@ -15,8 +16,8 @@ struct Triangle {
 	int valid;
 	vec2 _padding;
 };
-layout(std140, binding=0) uniform triUBO {
-	Triangle triangles[512];
+layout(std430, binding=0) buffer triUBO {
+	Triangle triangles[8132];
 };
 
 struct TriScreen {
@@ -154,7 +155,7 @@ vec2 baryUV(vec3 bCW, Triangle tri, TriScreen triS) {
 
 
 void drawTriangles(inout float minDepth) {
-	for (int index=0; index<512; index++) {
+	for (int index=0; index<8132; index++) {
 
 		Triangle thisTri = triangles[index];
 		if (thisTri.valid <= 0) {break; /* End of valid triangles. */}

@@ -123,28 +123,28 @@ glm::mat4 viewMatrix(utils::Camera& camera) {
 
 
 
-GLuint createTriangleUBO() {
-	GLuint triangleUBO;
-	glGenBuffers(1, &triangleUBO);
-	glBindBuffer(GL_UNIFORM_BUFFER, triangleUBO);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_UNIFORM_BUFFER, 0, triangleUBO);
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+GLuint createTriangleSSBO() {
+	GLuint triangleSSBO;
+	glGenBuffers(1, &triangleSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangleSSBO);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangleSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-	return triangleUBO;
+	return triangleSSBO;
 }
 
 
-void updateTriangleUBO(GLuint triangleUBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData) {
-	glBindBuffer(GL_UNIFORM_BUFFER, triangleUBO);
-	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, triData->data());
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+void updateTriangleSSBO(GLuint triangleSSBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangleSSBO);
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, triData->data());
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
 
 
 void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath, int textureID=-1) {
-
+	std::string modelSrc = utils::readFile(modelFilePath);
 }
 
 

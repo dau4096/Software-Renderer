@@ -18,7 +18,7 @@ namespace constants {
 	constexpr int HZ = 45;
 	constexpr double DT = 1.0d/HZ;
 
-	constexpr int MAX_TRIANGLES = 512;
+	constexpr int MAX_TRIANGLES = 8132;
 
 
 	//Invalid returns for vectors and floats.
