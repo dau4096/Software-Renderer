@@ -14,9 +14,13 @@ namespace render {
     glm::mat4 viewMatrix(utils::Camera& camera);
     
 
-    GLuint createTriangleSSBO();
-    void updateTriangleSSBO(GLuint triangleSSBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData);
-    void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath);
+    GLuint createVertexSSBO(size_t size);
+    GLuint createIndexSSBO(size_t size);
+    GLuint createModelSSBO(size_t size);
+    void updateVertexSSBO(GLuint vertexSSBO, std::vector<utils::Vertex>* vertices);
+    void updateIndexSSBO(GLuint indexSSBO, std::vector<glm::ivec4>* indices);
+    void updateModelSSBO(GLuint modelSSBO, std::vector<utils::Model>* models, glm::mat4& pvMatrix);
+    //void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath);
 
 
     GLuint createTexture2D(int width, int height, GLint imageFormat=GL_RGBA32F);

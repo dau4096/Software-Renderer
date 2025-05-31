@@ -24,15 +24,16 @@ std::array<std::string, display::TEXTURE_ARRAY_MAX_LAYERS> textureNames = {
 	"a", "b", "c",
 	"mus2", "osa", "piloten", "s_t_a_r_e",
 	"switch", "tabs=fish", "lamp",
-	"brick", "brick2", "brick3"
+	"brick", "brick2", "brick3",
 	"metal", "metal2", "planks",
 	"planks2", "quake"
 };
 
 
 
-std::array<utils::Triangle, constants::MAX_TRIANGLES> triangleData;
-glm::mat4 pvmMatrix;
+std::vector<utils::Vertex> vertices;
+std::vector<glm::ivec4> indices;
+std::vector<utils::Model> models;
 
 
 glm::ivec2 currentScreenRes;
@@ -50,34 +51,28 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 
 
 
-void tmpFillTris(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triangleData) {
-	triangleData->at(0) = Triangle(
-		glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
-		glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec2(-1.0f, 0.0f), 	//vB
-		glm::vec3( 0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
-		0 	//texID
-	);
-	triangleData->at(1) = Triangle(
-		glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
-		glm::vec3( 0.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f), 	//vB
-		glm::vec3( 0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
-		1 	//texID
-	);
+void tmpFillData(
+		std::vector<utils::Vertex>* vertices,
+		std::vector<glm::ivec4>* indices,
+		std::vector<utils::Model>* models
+	) {
+	vertices->push_back(Vertex(glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f)));
+	vertices->push_back(Vertex(glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)));
+	vertices->push_back(Vertex(glm::vec3( 0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 0.0f)));
+	vertices->push_back(Vertex(glm::vec3( 0.0f, 0.0f, 0.0f), glm::vec2(1.0f, 1.0f)));
+	indices->push_back(glm::ivec4(0,1,2,-1));
+	indices->push_back(glm::ivec4(0,3,2,-1));
+	models->push_back(Model(glm::vec3(0,0,0), glm::vec3(0,0,0), glm::vec3(1,1,1), 0, 1, 1));
 
 
-	triangleData->at(2) = Triangle(
-		glm::vec3( 1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
-		glm::vec3( 1.0f, 0.0f, 1.0f), glm::vec2(-1.0f, 0.0f), 	//vB
-		glm::vec3( 2.0f,-1.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
-		5 	//texID
-	);
 
-	triangleData->at(3) = Triangle(
-		glm::vec3( 1.0f, 0.0f, 0.0f), glm::vec2(-1.0f, 1.0f), 	//vA
-		glm::vec3( 2.0f,-1.0f, 0.0f), glm::vec2(0.0f, 1.0f), 	//vB
-		glm::vec3( 2.0f,-1.0f, 1.0f), glm::vec2(0.0f, 0.0f), 	//vC
-		5 	//texID
-	);
+	vertices->push_back(Vertex(glm::vec3( 1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f)));
+	vertices->push_back(Vertex(glm::vec3( 1.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)));
+	vertices->push_back(Vertex(glm::vec3( 2.0f,-1.0f, 1.0f), glm::vec2(1.0f, 0.0f)));
+	vertices->push_back(Vertex(glm::vec3( 2.0f,-1.0f, 0.0f), glm::vec2(1.0f, 1.0f)));
+	indices->push_back(glm::ivec4(4,5,6,-1));
+	indices->push_back(glm::ivec4(4,7,6,-1));
+	models->push_back(Model(glm::vec3(0,0,0), glm::vec3(0,0,0), glm::vec3(1,1,1), 2, 3, 5));
 }
 
 
@@ -99,12 +94,14 @@ int main() {
 
 	Camera camera;
 
-	tmpFillTris(&triangleData);
+	tmpFillData(&vertices, &indices, &models);
 
 	GLuint textureArray = render::createTexture2DArray(textureNames);
 
 
-	GLuint triangleSSBO = render::createTriangleSSBO();
+	GLuint vertexSSBO = render::createVertexSSBO(vertices.size());
+	GLuint indexSSBO = render::createIndexSSBO(indices.size());
+	GLuint modelSSBO = render::createModelSSBO(models.size());
 	GLuint renderedFrameID = render::createTexture2D(display::RENDER_RESOLUTION.x, display::RENDER_RESOLUTION.y);
 
 	//Geometry shader
@@ -123,9 +120,8 @@ int main() {
 	utils::GLErrorcheck("Initialisation", true);
 
 
-	glm::mat4 modelMatrix = glm::mat4(1.0f);
 	glm::mat4 projMatrix = render::projectionMatrix(camera);
-	glm::mat4 viewMatrix;
+	glm::mat4 viewMatrix, pvMatrix;
 
 
 	//Initialize keyMap for input tracking
@@ -200,11 +196,13 @@ int main() {
 		camera.angle.y = glm::clamp(camera.angle.y, 0.01f-constants::HALF_PI, constants::HALF_PI-0.01f);
 
 
-
-		render::updateTriangleSSBO(triangleSSBO, &triangleData);
-
 		viewMatrix = render::viewMatrix(camera);
-		pvmMatrix = projMatrix * viewMatrix * modelMatrix;
+		pvMatrix = projMatrix * viewMatrix;
+
+		render::updateVertexSSBO(vertexSSBO, &vertices);
+		render::updateIndexSSBO(indexSSBO, &indices);
+		render::updateModelSSBO(modelSSBO, &models, pvMatrix);
+
 
 
 
@@ -215,10 +213,10 @@ int main() {
 		glBindImageTexture(0, renderedFrameID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 		glBindTextureUnit(0, textureArray);
 
-		GLint MVPMatLocation = glGetUniformLocation(geoShader, "pvmMatrix");
+		GLint nModelsLocation = glGetUniformLocation(geoShader, "numModels");
 		GLint zNearLocation = glGetUniformLocation(geoShader, "zNear");
 		GLint zFarLocation = glGetUniformLocation(geoShader, "zFar");
-		glUniformMatrix4fv(MVPMatLocation, 1, GL_FALSE, glm::value_ptr(pvmMatrix));
+		glUniform1i(nModelsLocation, models.size());
 		glUniform1f(zNearLocation, camera.nearZ);
 		glUniform1f(zFarLocation, camera.farZ);
 
@@ -226,7 +224,7 @@ int main() {
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 		glBindVertexArray(0);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-		utils::GLErrorcheck("Geometry Shader", true);
+		utils::GLErrorcheck("Geometry Shader", false);
 
 
 

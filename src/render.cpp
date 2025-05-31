@@ -123,29 +123,74 @@ glm::mat4 viewMatrix(utils::Camera& camera) {
 
 
 
-GLuint createTriangleSSBO() {
-	GLuint triangleSSBO;
-	glGenBuffers(1, &triangleSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangleSSBO);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, triangleSSBO);
+
+
+
+GLuint createVertexSSBO(size_t size) {
+	GLuint vertexSSBO;
+	glGenBuffers(1, &vertexSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertexSSBO);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(utils::Vertex) * size, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexSSBO);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-	return triangleSSBO;
+	return vertexSSBO;
+}
+
+GLuint createIndexSSBO(size_t size) {
+	GLuint indexSSBO;
+	glGenBuffers(1, &indexSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indexSSBO);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::ivec4) * size, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, indexSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	return indexSSBO;
+}
+
+GLuint createModelSSBO(size_t size) {
+	GLuint modelSSBO;
+	glGenBuffers(1, &modelSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, modelSSBO);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(utils::ModelGPU) * size, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, modelSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	return modelSSBO;
 }
 
 
-void updateTriangleSSBO(GLuint triangleSSBO, std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData) {
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triangleSSBO);
-	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(utils::Triangle) * constants::MAX_TRIANGLES, triData->data());
+void updateVertexSSBO(GLuint vertexSSBO, std::vector<utils::Vertex>* vertices) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertexSSBO);
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(utils::Vertex) * vertices->size(), vertices->data());
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void updateIndexSSBO(GLuint indexSSBO, std::vector<glm::ivec4>* indices) {
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indexSSBO);
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(glm::ivec4) * indices->size(), indices->data());
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+void updateModelSSBO(GLuint modelSSBO, std::vector<utils::Model>* models, glm::mat4& pvMatrix) {
+	std::vector<utils::ModelGPU> bufferData;
+	for (utils::Model model : *models) {
+		bufferData.push_back(utils::ModelGPU(&model, pvMatrix));
+	}
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, modelSSBO);
+	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(utils::ModelGPU) * bufferData.size(), bufferData.data());
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
 
-
+/*
 void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath, int textureID=-1) {
 	std::string modelSrc = utils::readFile(modelFilePath);
 }
+*/
+
+
 
 
 

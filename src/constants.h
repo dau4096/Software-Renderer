@@ -18,11 +18,13 @@ namespace constants {
 	constexpr int HZ = 45;
 	constexpr double DT = 1.0d/HZ;
 
-	constexpr int MAX_TRIANGLES = 8132;
+	constexpr int INITIAL_VERTICES = 3;
+	constexpr int INITIAL_INDICES = 1;
+	constexpr int INITIAL_MODELS = 1;
 
 
 	//Invalid returns for vectors and floats.
-	constexpr float INVALID = 1e30f;
+	constexpr float INVALID = 0xFFFFFF;
 	constexpr glm::vec2 INVALIDv2 = glm::vec2(INVALID, INVALID);
 	constexpr glm::vec3 INVALIDv3 = glm::vec3(INVALID, INVALID, INVALID);
 	constexpr glm::vec4 INVALIDv4 = glm::vec4(INVALID, INVALID, INVALID, INVALID);
