@@ -1,5 +1,7 @@
+#define TINYOBJLOADER_IMPLEMENTATION
 #include "includes.h"
 #include "utils.h"
+#include "tiny_obj_loader.h"
 #include "C:/Users/User/Documents/code/.cpp/stb_image.h"
 using namespace std;
 using namespace utils;
@@ -184,11 +186,72 @@ void updateModelSSBO(GLuint modelSSBO, std::vector<utils::Model>* models, glm::m
 }
 
 
-/*
-void loadModel(std::array<utils::Triangle, constants::MAX_TRIANGLES>* triData, std::string& modelFilePath, int textureID=-1) {
-	std::string modelSrc = utils::readFile(modelFilePath);
+
+void loadModel(
+		const std::string& modelFileName, 
+		std::vector<utils::Vertex>* globalVertices, std::vector<glm::ivec4>* globalIndices,
+		std::vector<utils::Model>* models,
+		int textureID,
+		glm::vec3 position=glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3 rotation=glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f)
+	) {
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn;
+	std::string filePath = "models/" + modelFileName;
+
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, filePath.c_str(), nullptr, true);
+
+	if (!warn.empty()) std::cout << "TinyOBJ warning: " << warn << std::endl;
+	if (!ret) return;
+
+	int baseVertexIndex = globalVertices->size();
+	int baseIndexIndex = globalIndices->size();
+
+	for (const auto& shape : shapes) {
+		std::unordered_map<int, int> indexMap;
+
+		for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
+			int fv = shape.mesh.num_face_vertices[f];
+
+			glm::ivec4 triangle;
+			for (size_t v = 0; v < fv; v++) {
+				tinyobj::index_t idx = shape.mesh.indices[f * fv + v];
+
+				glm::vec3 pos(
+					attrib.vertices[3 * idx.vertex_index + 0],
+					attrib.vertices[3 * idx.vertex_index + 1],
+					attrib.vertices[3 * idx.vertex_index + 2]
+				);
+
+				glm::vec2 uv(0.0f);
+				if (idx.texcoord_index >= 0) {
+					uv = glm::vec2(
+						attrib.texcoords[2 * idx.texcoord_index + 0],
+						attrib.texcoords[2 * idx.texcoord_index + 1]
+					);
+				}
+
+				utils::Vertex vertex(pos, uv);
+
+				globalVertices->push_back(vertex);
+				triangle[v] = globalVertices->size() - 1;
+			}
+
+			globalIndices->push_back(triangle);
+		}
+
+		int start = baseIndexIndex;
+		int end = globalIndices->size() - 1;
+
+		models->emplace_back(
+			position, rotation, scale, start, end, textureID
+		);
+	}
 }
-*/
+
 
 
 

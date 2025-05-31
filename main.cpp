@@ -15,7 +15,7 @@ std::array<int, 16> monitoredKeys = { //16 should cover necessary keys.
 	GLFW_KEY_A, GLFW_KEY_D,
 	GLFW_KEY_E, GLFW_KEY_Q,
 	GLFW_KEY_1, GLFW_KEY_ESCAPE,
-	GLFW_KEY_LEFT_SHIFT,
+	GLFW_KEY_LEFT_SHIFT, GLFW_KEY_LEFT_CONTROL,
 	GLFW_KEY_LEFT_ALT
 };
 
@@ -49,33 +49,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 
-
-
-void tmpFillData(
-		std::vector<utils::Vertex>* vertices,
-		std::vector<glm::ivec4>* indices,
-		std::vector<utils::Model>* models
-	) {
-	vertices->push_back(Vertex(glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f)));
-	vertices->push_back(Vertex(glm::vec3(-1.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)));
-	vertices->push_back(Vertex(glm::vec3( 0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 0.0f)));
-	vertices->push_back(Vertex(glm::vec3( 0.0f, 0.0f, 0.0f), glm::vec2(1.0f, 1.0f)));
-	indices->push_back(glm::ivec4(0,1,2,-1));
-	indices->push_back(glm::ivec4(0,3,2,-1));
-	models->push_back(Model(glm::vec3(0,0,0), glm::vec3(0,0,0), glm::vec3(1,1,1), 0, 1, 1));
-
-
-
-	vertices->push_back(Vertex(glm::vec3( 1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f)));
-	vertices->push_back(Vertex(glm::vec3( 1.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)));
-	vertices->push_back(Vertex(glm::vec3( 2.0f,-1.0f, 1.0f), glm::vec2(1.0f, 0.0f)));
-	vertices->push_back(Vertex(glm::vec3( 2.0f,-1.0f, 0.0f), glm::vec2(1.0f, 1.0f)));
-	indices->push_back(glm::ivec4(4,5,6,-1));
-	indices->push_back(glm::ivec4(4,7,6,-1));
-	models->push_back(Model(glm::vec3(0,0,0), glm::vec3(0,0,0), glm::vec3(1,1,1), 2, 3, 5));
-}
-
-
 int main() {
 	try { //Catch exceptions
 	double cursorXPos, cursorYPos, cursorXPosPrev, cursorYPosPrev;
@@ -94,11 +67,38 @@ int main() {
 
 	Camera camera;
 
-	tmpFillData(&vertices, &indices, &models);
+
+	//Load models.
+	render::loadModel(
+		"LoPoly_FoodTray.obj",
+		&vertices, &indices, &models,
+		-1,
+		glm::vec3(0, 2, 0), glm::vec3(constants::PI/2, 0, 0), glm::vec3(2,2,2)
+	);
+	render::loadModel(
+		"LoPoly_SteelCable.obj",
+		&vertices, &indices, &models,
+		-1,
+		glm::vec3(-2, 0, 0)
+	);
+	/*
+	render::loadModel(
+		"wheel_test.obj",
+		&vertices, &indices, &models,
+		-1,
+		glm::vec3(2, 0, 0)
+	);
+	*/
+
+
+	//Print metrics.
+	std::cout << "Vertices: " << vertices.size() << std::endl;
+	std::cout << "Triangles: " << indices.size() << std::endl;
+	std::cout << "Models: " << models.size() << std::endl;
+
+
 
 	GLuint textureArray = render::createTexture2DArray(textureNames);
-
-
 	GLuint vertexSSBO = render::createVertexSSBO(vertices.size());
 	GLuint indexSSBO = render::createIndexSSBO(indices.size());
 	GLuint modelSSBO = render::createModelSSBO(models.size());
@@ -159,6 +159,7 @@ int main() {
 		}
 
 		float camSpeed = config::CAMERA_MOVE_SPEED;
+		if (keyMap[GLFW_KEY_LEFT_CONTROL]) {camSpeed *= config::CAMERA_MOVE_MULT_SLOW;}
 		if (keyMap[GLFW_KEY_LEFT_SHIFT]) {camSpeed *= config::CAMERA_MOVE_MULT_FAST;}
 		if (keyMap[GLFW_KEY_LEFT_ALT]) {camSpeed *= config::CAMERA_MOVE_MULT_FASTER;}
 

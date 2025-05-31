@@ -180,8 +180,18 @@ vec3 baryCentric(TriScreen triS) {
 
 
 float baryDepth(vec3 bCW, TriScreen triS) {
-	float weightSum = triS.sVertexA.w + triS.sVertexB.w + triS.sVertexC.w;
-	return ((triS.sVertexA.z * bCW.x) + (triS.sVertexB.z * bCW.y) + (triS.sVertexC.z * bCW.z)) / weightSum;	
+	float zA = triS.sVertexA.z / triS.sVertexA.w;
+	float zB = triS.sVertexB.z / triS.sVertexB.w;
+	float zC = triS.sVertexC.z / triS.sVertexC.w;
+
+	float wA = 1.0 / triS.sVertexA.w;
+	float wB = 1.0 / triS.sVertexB.w;
+	float wC = 1.0 / triS.sVertexC.w;
+
+	float zOverW = bCW.x * zA + bCW.y * zB + bCW.z * zC;
+	float invW = bCW.x * wA + bCW.y * wB + bCW.z * wC;
+
+	return zOverW / invW;
 }
 
 vec2 baryUV(vec3 bCW, Triangle tri, TriScreen triS) {
