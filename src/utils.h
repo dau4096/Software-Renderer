@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <C:/Users/User/Documents/code/.cpp/glm/glm.hpp>
+#include "C:/Users/User/Documents/code/.cpp/stb_image_write.h"
 
 using namespace std;
 
@@ -69,75 +70,149 @@ namespace utils {
 	};
 
 
-	struct Vertex {
-		alignas(16) glm::vec3 position;
-		alignas(16) glm::vec4 uvCol;
+	struct Span {
+		glm::uvec2 start;
+		size_t length;
+		size_t triIndex;
 
+		Span() : start(), length(0), triIndex(0) {}
 
-		Vertex() : position(), uvCol() {}
-
-		Vertex(glm::vec3 position, glm::vec2 UV)
-			: position(position), //Without vertex col VV
-			  uvCol(glm::vec4(UV.x, UV.y, 0.0f, 0.0f)) {}
-
-		Vertex(glm::vec3 position, glm::vec3 vertexColour)
-			: position(position), //With vertex colour, value is 1             VV
-			  uvCol(glm::vec4(vertexColour.r, vertexColour.g, vertexColour.b, 1.0f)) {}
+		Span(size_t X, size_t Y, size_t length, size_t tIdx)
+			: start(glm::uvec2(X, Y)), length(length), triIndex(tIdx) {}
 	};
 
 
-	struct Model {
-		glm::vec3 position, rotation, scale;
-		int startIndex, endIndex, textureID;
+	struct FrameBuffer {
+		std::vector<GLubyte> data;
+		unsigned int width, height, channels;
+		GLuint GLTextureID;
 
-		Model() : position(), rotation(), scale(), startIndex(), endIndex(), textureID() {}
+		FrameBuffer() : data(), width(0), height(0), channels(0), GLTextureID() {}
 
-		Model(
-				glm::vec3 position, glm::vec3 rotation, glm::vec3 scale,
-				int startIndex, int endIndex, int textureID
-			) : position(position), rotation(rotation), scale(scale),
-				startIndex(min(startIndex, endIndex)), endIndex(max(startIndex, endIndex)), textureID(textureID) {}
+		void generateTexture() {
+			glGenTextures(1, &GLTextureID);
+			glBindTexture(GL_TEXTURE_2D, GLTextureID);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+			glBindTexture(GL_TEXTURE_2D, 0);	
+		}
+
+		FrameBuffer(int width, int height) //Only support RGB. No need for alpha anytime soon.
+			: width(width), height(height), channels(3) {
+				data = std::vector<GLubyte>(width * height * channels);
+				generateTexture();
+			}
+
+		FrameBuffer(glm::ivec2 resolution) //Only support RGB. No need for alpha anytime soon.
+			: width(static_cast<unsigned int>(resolution.x)), height(static_cast<unsigned int>(resolution.y)), channels(3) {
+				data = std::vector<GLubyte>(width * height * channels);
+				generateTexture();
+			}
+
+		void clear() {
+			data = std::vector<GLubyte>(width * height * channels);
+		}
+
+		void writeToPNG(std::string name) {
+			stbi_write_png(
+				name.c_str(),
+				width, height,
+				channels, data.data(), width*channels
+			);
+		}
+
+		GLubyte& operator[](int index) {
+			if ((index < 0) || (index >= width*height)) {
+				raise("Index out of range: " + index);
+			}
+			return data[index];
+		}
+
+		GLubyte operator[](int index) const {
+			if ((index < 0) || (index >= width*height)) {
+				raise("Index out of range: " + index);
+			}
+			return data[index];
+		}
+
+		void setPX(int X, int Y, glm::uvec3 colour) {
+			if ((X < 0) || (X >= width) || (Y < 0) || (Y >= height)) {return; /* Outside of valid framebuffer area */}
+			int startIdx = (X + (Y * width)) * channels;
+			data[startIdx + 0] = colour.r;
+			data[startIdx + 1] = colour.g;
+			data[startIdx + 2] = colour.b;
+		}
+
+		glm::uvec3 getPX(int X, int Y) const {
+			if ((X < 0) || (X >= width) || (Y < 0) || (Y >= height)) {return glm::uvec3(0, 0, 0); /* Outside of valid framebuffer area */}
+			int startIdx = (X + (Y * width)) * channels;
+			return glm::uvec3(
+				data[startIdx + 0],
+				data[startIdx + 1],
+				data[startIdx + 2]
+			);
+		}
+
+		void drawSpan(Span* span, glm::uvec3 colour=glm::uvec3(255, 0, 255)) {
+			for (size_t xVal=0; xVal<span->length; xVal++) {
+				size_t xPos = span->start.x+xVal;
+				if (xPos < 0) {continue;}
+				if (xPos >= width) {break;}
+				setPX(xPos, span->start.y, colour);
+			}
+		}
+
+		void drawSpan(Span* span, std::array<glm::uvec3, 7>* colourList) {
+			for (size_t xVal=0; xVal<span->length; xVal++) {
+				size_t xPos = span->start.x+xVal;
+				if (xPos < 0) {continue;}
+				if (xPos >= width) {break;}
+				setPX(xPos, span->start.y, colourList->at(span->triIndex));
+			}
+		}
+
+		void updateGLTexture() {
+			glBindTexture(GL_TEXTURE_2D, GLTextureID);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
 	};
 
-	static glm::mat4 modelMatrix(glm::vec3 pos, glm::vec3 rot, glm::vec3 scale) {
-		glm::mat4 translationMat = glm::mat4(
-			1.0f, 	0.0f, 	0.0f, 	0.0f,
-			0.0f, 	1.0f, 	0.0f, 	0.0f,
-			0.0f, 	0.0f, 	1.0f, 	0.0f,
-			pos.x, 	pos.y, 	pos.z, 	1.0f
-		);
 
-		float sx = sin(rot.x), cx = cos(rot.x);
-		float sy = sin(rot.y), cy = cos(rot.y);
-		float sz = sin(rot.z), cz = cos(rot.z);
-		glm::mat4 rotationMat = glm::mat4(
-			cy*cz, cy*sz, -sy, 0.0f,
-			sx*sy*cz-cx*sz, sx*sy*sz+cx*cz, sx*cy, 0.0f,
-			cx*sy*cz+sx*sz, cx*sy*sz-sx*cz, cx*cy, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		);
-
-		glm::mat4 scaleMat = glm::mat4(
-			scale.x,	0.0f, 		0.0f,		0.0f, 
-			0.0f, 		scale.y,	0.0f, 		0.0f, 
-			0.0f, 		0.0f, 		scale.z,	0.0f, 
-			0.0f, 		0.0f, 		0.0f, 		1.0f
-		);
-
-		return translationMat * rotationMat * scaleMat;
+	static inline glm::uvec2 findLowest(glm::vec3 a, glm::vec3 b) {
+		if (a.y > b.y) {return glm::uvec2(glm::floor(b));}
+		return glm::uvec2(glm::floor(a));
+	}
+	static inline glm::uvec2 findHighest(glm::vec3 a, glm::vec3 b) {
+		if (a.y < b.y) {return glm::uvec2(glm::floor(b));}
+		return glm::uvec2(glm::floor(a));
 	}
 
-	struct ModelGPU {
-		alignas(16) glm::mat4 pvmMatrix;
-		alignas(8) glm::ivec2 indexLimits;
-		alignas(4) int textureID;
-		alignas(4) int _padding;
 
-		ModelGPU() : pvmMatrix(), indexLimits(), textureID(), _padding() {}
+	struct Edge {
+		glm::uvec2 start, end;
+		float sZ, eZ; //Z Values for ends.
+		float dx, currentX, currentZ;
+		size_t triIndex;
 
-		ModelGPU(Model* model, glm::mat4& pvMatrix)
-			: pvmMatrix(pvMatrix * modelMatrix(model->position, model->rotation, model->scale)),
-			  indexLimits(model->startIndex, model->endIndex), textureID(model->textureID) {}
+		Edge() : start(), end(), dx(), currentX(), triIndex() {}
+
+		Edge(glm::vec3 s, glm::vec3 e, size_t tIdx)
+			: start(findLowest(s, e)), end(findHighest(s, e)),
+			  triIndex(tIdx), sZ(s.z), eZ(e.z), currentX(s.x) {
+				glm::vec2 delta = glm::vec2(end) - glm::vec2(start);
+				dx = (abs(delta.y) >= 1) ? (delta.x / delta.y) : 0.0f;
+			}
+
+		void calculateXPosition(size_t yScan) {
+			float dy = float(yScan - start.y);
+			currentX = floor(start.x + (dx * dy) + 0.5f);
+			float t = dy / (end.y - start.y);
+			currentZ = sZ + t*(eZ - sZ);
+		}
 	};
 
 

@@ -1,7 +1,5 @@
-#define TINYOBJLOADER_IMPLEMENTATION
 #include "includes.h"
 #include "utils.h"
-#include "tiny_obj_loader.h"
 #include "C:/Users/User/Documents/code/.cpp/stb_image.h"
 using namespace std;
 using namespace utils;
@@ -113,6 +111,7 @@ glm::mat4 projectionMatrix(utils::Camera& camera) {
 	return glm::perspective(glm::radians(camera.FOV), aspectRatio, camera.nearZ, camera.farZ);
 }
 
+
 glm::mat4 viewMatrix(utils::Camera& camera) {
 	glm::vec3 forward = glm::vec3(
 		sin(camera.angle.x)*cos(camera.angle.y),
@@ -124,135 +123,47 @@ glm::mat4 viewMatrix(utils::Camera& camera) {
 }
 
 
+glm::mat4 modelMatrix(glm::vec3 pos=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 rot=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f)) {
+	glm::mat4 translationMat = glm::mat4(
+		1.0f, 	0.0f, 	0.0f, 	0.0f,
+		0.0f, 	1.0f, 	0.0f, 	0.0f,
+		0.0f, 	0.0f, 	1.0f, 	0.0f,
+		pos.x, 	pos.y, 	pos.z, 	1.0f
+	);
 
+	float sx = sin(rot.x), cx = cos(rot.x);
+	float sy = sin(rot.y), cy = cos(rot.y);
+	float sz = sin(rot.z), cz = cos(rot.z);
+	glm::mat4 rotationMat = glm::mat4(
+		cy*cz, cy*sz, -sy, 0.0f,
+		sx*sy*cz-cx*sz, sx*sy*sz+cx*cz, sx*cy, 0.0f,
+		cx*sy*cz+sx*sz, cx*sy*sz-sx*cz, cx*cy, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
 
+	glm::mat4 scaleMat = glm::mat4(
+		scale.x,	0.0f, 		0.0f,		0.0f, 
+		0.0f, 		scale.y,	0.0f, 		0.0f, 
+		0.0f, 		0.0f, 		scale.z,	0.0f, 
+		0.0f, 		0.0f, 		0.0f, 		1.0f
+	);
 
-
-GLuint createVertexSSBO(size_t size) {
-	GLuint vertexSSBO;
-	glGenBuffers(1, &vertexSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertexSSBO);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(utils::Vertex) * size, nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertexSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-	return vertexSSBO;
-}
-
-GLuint createIndexSSBO(size_t size) {
-	GLuint indexSSBO;
-	glGenBuffers(1, &indexSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indexSSBO);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::ivec4) * size, nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, indexSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-	return indexSSBO;
-}
-
-GLuint createModelSSBO(size_t size) {
-	GLuint modelSSBO;
-	glGenBuffers(1, &modelSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, modelSSBO);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(utils::ModelGPU) * size, nullptr, GL_DYNAMIC_DRAW);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, modelSSBO);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-	return modelSSBO;
+	return translationMat * rotationMat * scaleMat;
 }
 
 
-void updateVertexSSBO(GLuint vertexSSBO, std::vector<utils::Vertex>* vertices) {
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertexSSBO);
-	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(utils::Vertex) * vertices->size(), vertices->data());
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+glm::vec4 project(glm::vec3 vertex, glm::mat4 pvmMatrix) { //Could be moved to compute shader later.
+	glm::vec4 vertexV4 = glm::vec4(vertex, 1.0f);
+	glm::vec4 ndc = pvmMatrix * vertexV4;
+	ndc.w = glm::max(1e-5f, ndc.w);
+	ndc /= glm::vec4(ndc.w, ndc.w, ndc.w, 1.0f);
+	if (ndc.z < -1 || ndc.z > 1) {return constants::INVALIDv4;}
+	return glm::vec4(
+		(ndc.x + 1.0f) / 2.0f * display::RENDER_RESOLUTION.x,
+		(1.0f - ndc.y) / 2.0f * display::RENDER_RESOLUTION.y,
+		ndc.z * ndc.w, ndc.w
+	);
 }
-
-void updateIndexSSBO(GLuint indexSSBO, std::vector<glm::ivec4>* indices) {
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, indexSSBO);
-	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(glm::ivec4) * indices->size(), indices->data());
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-}
-
-void updateModelSSBO(GLuint modelSSBO, std::vector<utils::Model>* models, glm::mat4& pvMatrix) {
-	std::vector<utils::ModelGPU> bufferData;
-	for (utils::Model model : *models) {
-		bufferData.push_back(utils::ModelGPU(&model, pvMatrix));
-	}
-
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, modelSSBO);
-	glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(utils::ModelGPU) * bufferData.size(), bufferData.data());
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-}
-
-
-
-void loadModel(
-		const std::string& modelFileName, 
-		std::vector<utils::Vertex>* globalVertices, std::vector<glm::ivec4>* globalIndices,
-		std::vector<utils::Model>* models,
-		int textureID,
-		glm::vec3 position=glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3 rotation=glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f)
-	) {
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string warn;
-	std::string filePath = "models/" + modelFileName;
-
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, filePath.c_str(), nullptr, true);
-
-	if (!warn.empty()) std::cout << "TinyOBJ warning: " << warn << std::endl;
-	if (!ret) return;
-
-	int baseVertexIndex = globalVertices->size();
-	int baseIndexIndex = globalIndices->size();
-
-	for (const auto& shape : shapes) {
-		std::unordered_map<int, int> indexMap;
-
-		for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
-			int fv = shape.mesh.num_face_vertices[f];
-
-			glm::ivec4 triangle;
-			for (size_t v = 0; v < fv; v++) {
-				tinyobj::index_t idx = shape.mesh.indices[f * fv + v];
-
-				glm::vec3 pos(
-					attrib.vertices[3 * idx.vertex_index + 0],
-					attrib.vertices[3 * idx.vertex_index + 1],
-					attrib.vertices[3 * idx.vertex_index + 2]
-				);
-
-				glm::vec2 uv(0.0f);
-				if (idx.texcoord_index >= 0) {
-					uv = glm::vec2(
-						attrib.texcoords[2 * idx.texcoord_index + 0],
-						attrib.texcoords[2 * idx.texcoord_index + 1]
-					);
-				}
-
-				utils::Vertex vertex(pos, uv);
-
-				globalVertices->push_back(vertex);
-				triangle[v] = globalVertices->size() - 1;
-			}
-
-			globalIndices->push_back(triangle);
-		}
-
-		int start = baseIndexIndex;
-		int end = globalIndices->size() - 1;
-
-		models->emplace_back(
-			position, rotation, scale, start, end, textureID
-		);
-	}
-}
-
-
 
 
 

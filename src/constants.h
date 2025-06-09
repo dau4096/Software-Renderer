@@ -13,14 +13,12 @@ namespace constants {
 	constexpr float TO_RAD = 0.01745329251994f;
 	constexpr float TO_DEG = 57.2957795130824f;
 
+	constexpr float EPSILON = 1e-5f;
+
 
 	//Physics/Rendering Frequency/dt
 	constexpr int HZ = 45;
 	constexpr double DT = 1.0d/HZ;
-
-	constexpr int INITIAL_VERTICES = 3;
-	constexpr int INITIAL_INDICES = 1;
-	constexpr int INITIAL_MODELS = 1;
 
 
 	//Invalid returns for vectors and floats.
@@ -41,7 +39,7 @@ namespace config {
 namespace display {
 	//Resolutions
 	constexpr glm::ivec2 SCREEN_RESOLUTION = glm::ivec2(640, 480);
-	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(960, 540);
+	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(640, 480);
 
 	//Texture Standardisation
 	constexpr glm::ivec2 TEXTURE_RESOLUTION = glm::ivec2(128, 128);
@@ -60,7 +58,8 @@ namespace display {
 
 namespace dev {
 	//Assorted DEV/DEBUG constants
-	constexpr int SHOW_FREQ = 0;
+	constexpr bool SHOW_FREQ = true;
+	constexpr bool SHOW_EDGES = true;
 }
 
 #endif

@@ -12,23 +12,8 @@ namespace render {
 
 	glm::mat4 projectionMatrix(utils::Camera& camera);
 	glm::mat4 viewMatrix(utils::Camera& camera);
-	
-
-	GLuint createVertexSSBO(size_t size);
-	GLuint createIndexSSBO(size_t size);
-	GLuint createModelSSBO(size_t size);
-	void updateVertexSSBO(GLuint vertexSSBO, std::vector<utils::Vertex>* vertices);
-	void updateIndexSSBO(GLuint indexSSBO, std::vector<glm::ivec4>* indices);
-	void updateModelSSBO(GLuint modelSSBO, std::vector<utils::Model>* models, glm::mat4& pvMatrix);
-	void loadModel(
-		const std::string& modelFileName, 
-		std::vector<utils::Vertex>* globalVertices, std::vector<glm::ivec4>* globalIndices,
-		std::vector<utils::Model>* models,
-		int textureID,
-		glm::vec3 position=glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3 rotation=glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f)
-	);
+	glm::mat4 modelMatrix(glm::vec3 pos=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 rot=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f));
+	glm::vec4 project(glm::vec3 vertex, glm::mat4 pvmMatrix);
 
 
 	GLuint createTexture2D(int width, int height, GLint imageFormat=GL_RGBA32F);

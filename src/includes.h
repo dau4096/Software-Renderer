@@ -17,10 +17,6 @@
 #include <C:/Users/User/Documents/code/.cpp/glfw-3.4.bin.WIN64/include/GLFW/glfw3.h>
 
 
-//Include PugiXML
-#include <C:/Users/User/Documents/code/.cpp/pugixml/pugixml.hpp>
-
-
 //Include std subheaders.
 #include <iostream>
 #include <fstream>
