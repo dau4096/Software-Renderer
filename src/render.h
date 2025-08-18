@@ -16,9 +16,7 @@ namespace render {
 	glm::vec4 project(glm::vec3 vertex, glm::mat4 pvmMatrix);
 
 
-	GLuint createTexture2D(int width, int height, GLint imageFormat=GL_RGBA32F);
 	GLuint loadTextureFile(std::string fileName);
-	GLuint createTexture2DArray(std::array<std::string, display::TEXTURE_ARRAY_MAX_LAYERS>& textureNames);
 
 
 	GLuint getVAO();

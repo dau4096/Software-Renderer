@@ -2,23 +2,23 @@
 #define CONSTANTS_H
 
 #include "includes.h"
-#include <C:/Users/User/Documents/code/.cpp/glm/glm.hpp>
+#include <glm/glm.hpp>
 namespace constants {
 	//Mathematical Constants
-	constexpr float PI = 3.14159265358979f;
+	constexpr float PI = 3.141593f;
 	constexpr float HALF_PI = PI / 2.0f;
 	constexpr float TWO_PI = PI * 2.0f;
-	constexpr float EXP = 2.71828182845905f;
+	constexpr float EXP = 2.718282f;
 
-	constexpr float TO_RAD = 0.01745329251994f;
-	constexpr float TO_DEG = 57.2957795130824f;
+	constexpr float TO_RAD = 0.017453f;
+	constexpr float TO_DEG = 57.295780f;
 
 	constexpr float EPSILON = 1e-5f;
 
 
-	//Physics/Rendering Frequency/dt
-	constexpr int HZ = 45;
-	constexpr double DT = 1.0d/HZ;
+	//Frequency and time-period.
+	constexpr float HZ = 60.0f;
+	constexpr float DT = 1.0f / HZ;
 
 
 	//Invalid returns for vectors and floats.
@@ -43,9 +43,6 @@ namespace display {
 
 	//Texture Standardisation
 	constexpr glm::ivec2 TEXTURE_RESOLUTION = glm::ivec2(128, 128);
-	constexpr int TEXTURE_ARRAY_MAX_LAYERS = 64;
-	constexpr const char* FALLBACK_TEXTURE_PATH = "textures/fallback-general.png";
-
 
 	//Camera Assorted
 	constexpr float CAMERA_FOV = 70.0f;
@@ -58,8 +55,16 @@ namespace display {
 
 namespace dev {
 	//Assorted DEV/DEBUG constants
-	constexpr bool SHOW_FREQ = true;
-	constexpr bool SHOW_EDGES = true;
+	constexpr bool SHOW_FREQ = false; //Shows current refresh rate
+
+
+	//Rendering options.
+	constexpr bool DRAW_EDGES = false; //Draws the Edge class instances over the triangles
+	constexpr bool DRAW_WIREFRAME = false; //Only draws edges. (Horizontal included)
+	constexpr bool SHOW_CORNERS = false; //Draws markers on each corner for visual coordinate reference
+
+	//Very unstable.
+	constexpr bool DRAW_BACKFACES = false; //If a triangle has inverted winding order (the back) then it corrects that. Can cause issues as method is not ideal.
 }
 
 #endif

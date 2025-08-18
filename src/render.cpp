@@ -155,9 +155,8 @@ glm::mat4 modelMatrix(glm::vec3 pos=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 rot=g
 glm::vec4 project(glm::vec3 vertex, glm::mat4 pvmMatrix) { //Could be moved to compute shader later.
 	glm::vec4 vertexV4 = glm::vec4(vertex, 1.0f);
 	glm::vec4 ndc = pvmMatrix * vertexV4;
-	ndc.w = glm::max(1e-5f, ndc.w);
+	ndc.w = glm::max(1e-3f, ndc.w);
 	ndc /= glm::vec4(ndc.w, ndc.w, ndc.w, 1.0f);
-	if (ndc.z < -1 || ndc.z > 1) {return constants::INVALIDv4;}
 	return glm::vec4(
 		(ndc.x + 1.0f) / 2.0f * display::RENDER_RESOLUTION.x,
 		(1.0f - ndc.y) / 2.0f * display::RENDER_RESOLUTION.y,
@@ -167,22 +166,6 @@ glm::vec4 project(glm::vec3 vertex, glm::mat4 pvmMatrix) { //Could be moved to c
 
 
 
-
-
-GLuint createTexture2D(int width, int height, GLint imageFormat=GL_RGBA32F) {
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
-
-	glTexStorage2D(GL_TEXTURE_2D, 1, imageFormat, width, height);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	return textureID;
-}
 
 
 GLuint loadTextureFile(std::string fileName) {
@@ -201,7 +184,7 @@ GLuint loadTextureFile(std::string fileName) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 
-	std::string texturePath = "heightmaps/" + fileName + ".png";
+	std::string texturePath = "textures/" + fileName + ".png";
 	unsigned char* textureData = stbi_load(texturePath.c_str(), &width, &height, &channels, 4);
 
 	if (!textureData) {
@@ -213,8 +196,7 @@ GLuint loadTextureFile(std::string fileName) {
 
 
 	if (width != display::TEXTURE_RESOLUTION.x || height != display::TEXTURE_RESOLUTION.y) {
-		std::cerr << "Texture " << fileName << " has incorrect dimensions (" << width << "x" << height << "). Expected "
-				  << display::TEXTURE_RESOLUTION.x << "x" << display::TEXTURE_RESOLUTION.y << "." << std::endl;
+		std::cerr << "Texture " << fileName << " has incorrect dimensions (" << width << "x" << height << "). Expected " << display::TEXTURE_RESOLUTION.x << "x" << display::TEXTURE_RESOLUTION.y << "." << std::endl;
 		stbi_image_free(textureData);
 		return 0;
 	}
@@ -234,94 +216,6 @@ GLuint loadTextureFile(std::string fileName) {
 
 
 
-GLuint createTexture2DArray(std::array<std::string, display::TEXTURE_ARRAY_MAX_LAYERS>& textureNames) {
-	GLuint sheetArrayID;
-	glGenTextures(1, &sheetArrayID);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, sheetArrayID);
-
-
-	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, display::TEXTURE_RESOLUTION.x, display::TEXTURE_RESOLUTION.y, display::TEXTURE_ARRAY_MAX_LAYERS, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-
-
-
-	int fallbackTextureWidth, fallbackTextureHeight, fallbackTextureChannels;
-	bool usedFallback;
-
-	unsigned char* fallbackTextureData = stbi_load(
-		display::FALLBACK_TEXTURE_PATH,
-		&fallbackTextureWidth, &fallbackTextureHeight,
-		&fallbackTextureChannels, 4
-	);
-
-	if (!fallbackTextureData) {
-		std::cerr << "Failed to load fallback texture : " << stbi_failure_reason() << std::endl;
-		glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-		glDeleteTextures(1, &sheetArrayID);
-		return 0;	
-	}
-
-
-
-	int width, height, channels;
-	int layerIndex = 0;
-	for (const std::string& textureName : textureNames) {
-		if (textureName.empty()) continue;
-		usedFallback = false;
-
-		std::string reportedTextureName = textureName;
-		std::string texturePath = "textures/" + textureName + ".png";
-		unsigned char* textureData = stbi_load(
-			texturePath.c_str(),
-			&width, &height,
-			&channels, 4
-		);
-
-		if (!textureData) {
-			//Use fallback texture.
-			textureData = fallbackTextureData;
-			width = fallbackTextureWidth;
-			height = fallbackTextureHeight;
-			channels = fallbackTextureChannels;
-			reportedTextureName = "FALLBACK_TEXTURE";
-			usedFallback = true;
-		}
-
-
-		if (width != display::TEXTURE_RESOLUTION.x || height != display::TEXTURE_RESOLUTION.y) {
-			std::cerr << "Texture " << reportedTextureName << " has incorrect dimensions (" << width << "x" << height << "). Expected "
-					  << display::TEXTURE_RESOLUTION.x << "x" << display::TEXTURE_RESOLUTION.y << "." << std::endl;
-			stbi_image_free(textureData);
-			continue;
-		}
-
-
-		glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layerIndex, display::TEXTURE_RESOLUTION.x, display::TEXTURE_RESOLUTION.y, 1, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
-
-
-		if (!usedFallback) {
-			stbi_image_free(textureData);
-		}
-
-		layerIndex++;
-		if (layerIndex >= display::TEXTURE_ARRAY_MAX_LAYERS) break;
-	}
-
-	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-
-	stbi_image_free(fallbackTextureData);
-
-	return sheetArrayID;
-}
-
-
-
 
 
 GLuint getVAO() {
@@ -337,17 +231,17 @@ GLuint getVAO() {
 		2, 3, 1,
 	};
 
-	// Create VAO (Vertex Array Object) to store all vertex state
+	//Create VAO
 	GLuint VAO;
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
-	// Create VBO (Vertex Buffer Object) to store vertex data
+	//Create VBO
 	GLuint VBO;
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-	// Fill the buffer with vertex data (positions + texture coordinates)
+	//Fill the buffer with vertex data (positions + texture coordinates)
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
 	GLuint EBO;
@@ -356,16 +250,16 @@ GLuint getVAO() {
 
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-	// Define the position attribute (location = 0)
+	//Define position attr (location 0)
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// Define the texture coordinate attribute (location = 1)
+	//Define tex-coord attr (location 1)
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0); // Unbind VAO
+	glBindVertexArray(0);
 
 	return VAO;
 }

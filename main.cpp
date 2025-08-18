@@ -166,6 +166,8 @@ int main() {
 			glfwGetCursorPos(Window, &cursorXPos, &cursorYPos);
 		}
 
+
+		//Camera controls
 		float camSpeed = config::CAMERA_MOVE_SPEED;
 		if (keyMap[GLFW_KEY_LEFT_CONTROL]) {camSpeed *= config::CAMERA_MOVE_MULT_SLOW;}
 		if (keyMap[GLFW_KEY_LEFT_SHIFT]) {camSpeed *= config::CAMERA_MOVE_MULT_FAST;}
@@ -209,6 +211,15 @@ int main() {
 		pvmMatrix = projMatrix * viewMatrix * modelMatrix;
 
 
+		if (dev::SHOW_CORNERS) {
+			//Mark corners for screen positional reference.
+			frameBuffer.setPX(0,				 	0,						glm::uvec3(255, 255, 255));
+			frameBuffer.setPX(frameBuffer.width-1, 	0,						glm::uvec3(255,   0,   0));
+			frameBuffer.setPX(0,				 	frameBuffer.height-1,	glm::uvec3(  0, 255,   0));
+			frameBuffer.setPX(frameBuffer.width-1, 	frameBuffer.height-1,	glm::uvec3(255, 255,   0));
+		}
+
+
 
 		//Quake-style rendering loops
 		//Project vertices.
@@ -234,12 +245,20 @@ int main() {
 			glm::vec2 AB = glm::vec2(B - A);
 			glm::vec2 AC = glm::vec2(C - A);
 			glm::vec2 An = glm::vec2(AC.y, -AC.x);
+
 			if (dot(An, AB) < 0.0f) {
 				//Invalid winding order, must be viewed from back.
-				//Blank edges.
-				edges[(tIndex * 3) + 0] = utils::Edge();
-				edges[(tIndex * 3) + 1] = utils::Edge();
-				edges[(tIndex * 3) + 2] = utils::Edge();
+				if (dev::DRAW_BACKFACES) {
+					//Change order to appear as front face.
+					edges[(tIndex * 3) + 0] = utils::Edge(glm::vec3(A), glm::vec3(B), compIndex.w);
+					edges[(tIndex * 3) + 2] = utils::Edge(glm::vec3(B), glm::vec3(C), compIndex.w);
+					edges[(tIndex * 3) + 1] = utils::Edge(glm::vec3(C), glm::vec3(A), compIndex.w);
+				} else {
+					//Blank edges.
+					edges[(tIndex * 3) + 0] = utils::Edge();
+					edges[(tIndex * 3) + 1] = utils::Edge();
+					edges[(tIndex * 3) + 2] = utils::Edge();
+				}
 			} else {
 				/*
 				A triangle has 3 edges. Add to the edges buffer.
@@ -259,10 +278,14 @@ int main() {
 		std::array<std::vector<utils::Edge*>, display::RENDER_RESOLUTION.y> edgeAdditions;
 		std::array<std::vector<utils::Edge*>, display::RENDER_RESOLUTION.y> edgeRemovals;
 		std::vector<utils::Edge*> activeEdgesList; //Active edges, based on the above 2 vectors.
+		size_t idx = 0;
 		for (utils::Edge& e : edges) {
-			int yMin = static_cast<int>(std::floor(e.start.y));
-			int yMax = glm::min(static_cast<int>(std::floor(e.end.y)), display::RENDER_RESOLUTION.y);
-			if (yMin == yMax) {continue; /* Ignore horizontal edges. */}
+			int yMin = glm::clamp(static_cast<int>(std::round(e.start.y)), 0, display::RENDER_RESOLUTION.y);
+			int yMax = glm::clamp(static_cast<int>(std::round(e.end.y)), 0, display::RENDER_RESOLUTION.y);
+			if (yMin == yMax) {idx++; continue; /* Ignore horizontal edges. */}
+
+			if (yMin < 0) {
+			}
 
 			//Find start of edge and add to relevant line of the additions vector.
 			if (yMin >= 0 && yMin < display::RENDER_RESOLUTION.y) {
@@ -270,9 +293,10 @@ int main() {
 			}
 
 			//Find end of edge and add to relevant line of the additions vector.
-			if (yMax >= 0) {
+			if (yMax >= 0 && yMax < display::RENDER_RESOLUTION.y) {
 				edgeRemovals[yMax].emplace_back(&e);
 			}
+			idx++;
 		}
 
 		for (size_t yScan=0; yScan<display::RENDER_RESOLUTION.y; yScan++) {
@@ -295,8 +319,8 @@ int main() {
 			std::vector<utils::Span> spans;
 
 			for (utils::Edge* edge : activeEdgesList) {
-				edge->calculateXPosition(yScan);
-				if (dev::SHOW_EDGES) {frameBuffer.setPX(edge->currentX, yScan, glm::uvec3(255, 0, 255));}
+				edge->calculateYScanValues(yScan);
+				if (dev::DRAW_EDGES || dev::DRAW_WIREFRAME) {frameBuffer.setPX(edge->currentX, yScan, glm::uvec3(255, 0, 255));}
 			}
 			//Sort by left-to-right onscreen.
 			std::sort(activeEdgesList.begin(), activeEdgesList.end(), compareEdges);
@@ -313,7 +337,7 @@ int main() {
 					//Closes off previous triangle.
 					spans.push_back(utils::Span(
 						prevEdge->currentX, yScan,
-						size_t(floor(thisEdge->currentX - prevEdge->currentX)),
+						size_t(round(thisEdge->currentX - prevEdge->currentX)),
 						thisEdge->triIndex
 					));
 					prevEdge = nullptr;
@@ -329,7 +353,7 @@ int main() {
 				if (thisEdgeCloser) {
 					spans.push_back(utils::Span(
 						prevEdge->currentX, yScan,
-						size_t(floor(thisEdge->currentX - prevEdge->currentX)),
+						size_t(round(thisEdge->currentX - prevEdge->currentX)),
 						thisEdge->triIndex
 					));
 					prevEdge = thisEdge;
@@ -339,11 +363,10 @@ int main() {
 
 
 			if (spans.size() < 1) {continue; /* No spans to draw. */}
-			size_t sIdxTMP = 0;
 			for (utils::Span span : spans) {
-				glm::uvec3 colour = (sIdxTMP > 0) ? glm::uvec3(255, 0, 0) : glm::uvec3(0, 255, 0);
-				frameBuffer.drawSpan(&span, &colourList);
-				sIdxTMP++;
+				if (!dev::DRAW_WIREFRAME) {
+					frameBuffer.drawSpan(&span, &colourList);
+				}
 			}
 		}
 

@@ -14,8 +14,9 @@ using namespace std;
 
 //Utility functions
 namespace utils {
-	static inline void printVec2(glm::vec2 vector) {std::cout << "<" << vector.x << ", " << vector.y << ">" << std::endl;};
-	static inline void printVec3(glm::vec3 vector) {std::cout << "<" << vector.x << ", " << vector.y << ", " << vector.z << ">" << std::endl;};
+	static inline void printVec(glm::vec2 vector) {std::cout << "<" << vector.x << ", " << vector.y << ">" << std::endl;};
+	static inline void printVec(glm::vec3 vector) {std::cout << "<" << vector.x << ", " << vector.y << ", " << vector.z << ">" << std::endl;};
+	static inline void printVec(glm::vec4 vector) {std::cout << "<" << vector.x << ", " << vector.y << ", " << vector.z << ", " << vector.w << ">" << std::endl;};
 	static inline void raise(std::string err) {
 		std::cerr << err << std::endl;
 		std::string end;
@@ -71,14 +72,26 @@ namespace utils {
 
 
 	struct Span {
-		glm::uvec2 start;
+		glm::ivec2 start;
 		size_t length;
 		size_t triIndex;
 
+		inline void _clampSpanValues(int X, int Y, int len) {
+			start = glm::ivec2(X, Y);
+			length = size_t(glm::clamp(len, 0, display::RENDER_RESOLUTION.x));
+		}
+
 		Span() : start(), length(0), triIndex(0) {}
 
-		Span(size_t X, size_t Y, size_t length, size_t tIdx)
-			: start(glm::uvec2(X, Y)), length(length), triIndex(tIdx) {}
+		Span(int X, int Y, int len, size_t tIdx)
+			: triIndex(tIdx) {
+				_clampSpanValues(X, Y, len);
+			}
+
+		Span(float X, int Y, int len, size_t tIdx)
+			: triIndex(tIdx) {
+				_clampSpanValues(int(round(X)), Y, len);
+			}
 	};
 
 
@@ -124,31 +137,31 @@ namespace utils {
 			);
 		}
 
-		GLubyte& operator[](int index) {
+		GLubyte& operator[](size_t index) {
 			if ((index < 0) || (index >= width*height)) {
 				raise("Index out of range: " + index);
 			}
 			return data[index];
 		}
 
-		GLubyte operator[](int index) const {
+		GLubyte operator[](size_t index) const {
 			if ((index < 0) || (index >= width*height)) {
 				raise("Index out of range: " + index);
 			}
 			return data[index];
 		}
 
-		void setPX(int X, int Y, glm::uvec3 colour) {
+		void setPX(size_t X, size_t Y, glm::uvec3 colour) {
 			if ((X < 0) || (X >= width) || (Y < 0) || (Y >= height)) {return; /* Outside of valid framebuffer area */}
-			int startIdx = (X + (Y * width)) * channels;
+			size_t startIdx = (X + (Y * width)) * channels;
 			data[startIdx + 0] = colour.r;
 			data[startIdx + 1] = colour.g;
 			data[startIdx + 2] = colour.b;
 		}
 
-		glm::uvec3 getPX(int X, int Y) const {
+		glm::uvec3 getPX(size_t X, size_t Y) const {
 			if ((X < 0) || (X >= width) || (Y < 0) || (Y >= height)) {return glm::uvec3(0, 0, 0); /* Outside of valid framebuffer area */}
-			int startIdx = (X + (Y * width)) * channels;
+			size_t startIdx = (X + (Y * width)) * channels;
 			return glm::uvec3(
 				data[startIdx + 0],
 				data[startIdx + 1],
@@ -158,9 +171,9 @@ namespace utils {
 
 		void drawSpan(Span* span, glm::uvec3 colour=glm::uvec3(255, 0, 255)) {
 			for (size_t xVal=0; xVal<span->length; xVal++) {
-				size_t xPos = span->start.x+xVal;
+				int xPos = span->start.x+xVal;
 				if (xPos < 0) {continue;}
-				if (xPos >= width) {break;}
+				if (xPos >= width) {continue;}
 				setPX(xPos, span->start.y, colour);
 			}
 		}
@@ -169,7 +182,7 @@ namespace utils {
 			for (size_t xVal=0; xVal<span->length; xVal++) {
 				size_t xPos = span->start.x+xVal;
 				if (xPos < 0) {continue;}
-				if (xPos >= width) {break;}
+				if (xPos >= width) {continue;}
 				setPX(xPos, span->start.y, colourList->at(span->triIndex));
 			}
 		}
@@ -181,37 +194,48 @@ namespace utils {
 		}
 	};
 
-
-	static inline glm::uvec2 findLowest(glm::vec3 a, glm::vec3 b) {
-		if (a.y > b.y) {return glm::uvec2(glm::floor(b));}
-		return glm::uvec2(glm::floor(a));
+	static inline glm::vec3 reformatVec3(glm::vec3 in) {
+		return glm::round(in);
 	}
-	static inline glm::uvec2 findHighest(glm::vec3 a, glm::vec3 b) {
-		if (a.y < b.y) {return glm::uvec2(glm::floor(b));}
-		return glm::uvec2(glm::floor(a));
+
+	static inline glm::vec3 findLowest(glm::vec3 a, glm::vec3 b) {
+		if (a.y > b.y) {return reformatVec3(b);}
+		return reformatVec3(a);
+	}
+	static inline glm::vec3 findHighest(glm::vec3 a, glm::vec3 b) {
+		if (a.y < b.y) {return reformatVec3(b);}
+		return reformatVec3(a);
 	}
 
 
 	struct Edge {
-		glm::uvec2 start, end;
+		glm::ivec2 start, end;
 		float sZ, eZ; //Z Values for ends.
-		float dx, currentX, currentZ;
+		float dx, currentX, dz, currentZ;
 		size_t triIndex;
 
 		Edge() : start(), end(), dx(), currentX(), triIndex() {}
 
 		Edge(glm::vec3 s, glm::vec3 e, size_t tIdx)
-			: start(findLowest(s, e)), end(findHighest(s, e)),
-			  triIndex(tIdx), sZ(s.z), eZ(e.z), currentX(s.x) {
-				glm::vec2 delta = glm::vec2(end) - glm::vec2(start);
+			: triIndex(tIdx), sZ(s.z), eZ(e.z),
+			  currentZ(sZ) {
+
+			  	glm::vec3 low = findLowest(s, e);
+			  	glm::vec3 high = findHighest(s, e);
+
+			  	start = glm::vec2(low);
+			  	end = glm::vec2(high);
+			  	currentX = high.x;
+
+				glm::vec3 delta = high - low;
 				dx = (abs(delta.y) >= 1) ? (delta.x / delta.y) : 0.0f;
+				dz = (abs(delta.y) >= 1) ? (delta.z / delta.y) : 0.0f;
 			}
 
-		void calculateXPosition(size_t yScan) {
+		void calculateYScanValues(size_t yScan) {
 			float dy = float(yScan - start.y);
 			currentX = floor(start.x + (dx * dy) + 0.5f);
-			float t = dy / (end.y - start.y);
-			currentZ = sZ + t*(eZ - sZ);
+			currentZ = sZ + (dz * dy);
 		}
 	};
 
