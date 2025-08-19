@@ -1,20 +1,15 @@
 @ECHO off
-CD C:\Users\User\Documents\GitHub\Software-Renderer\src
 
-
+CD src
 REM Delete all .o files and force recompile.
-IF EXIST "constants.o" (
-    DEL /Q "constants.o"
-)
-IF EXIST "render.o" (
-    DEL /Q "render.o"
+IF EXIST "graphics.o" (
+    DEL /Q "graphics.o"
 )
 IF EXIST "utils.o" (
     DEL /Q "utils.o"
 )
 
-
-CD C:\Users\User\Documents\GitHub\Software-Renderer
+CD ..
 IF EXIST "main.o" (
     DEL /Q "main.o"
 )

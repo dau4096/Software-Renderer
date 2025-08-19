@@ -55,7 +55,7 @@ namespace display {
 
 namespace dev {
 	//Assorted DEV/DEBUG constants
-	constexpr bool SHOW_FREQ = false; //Shows current refresh rate
+	constexpr bool SHOW_FREQ = true; //Shows current refresh rate
 
 
 	//Rendering options.
@@ -64,7 +64,7 @@ namespace dev {
 	constexpr bool SHOW_CORNERS = false; //Draws markers on each corner for visual coordinate reference
 
 	//Very unstable.
-	constexpr bool DRAW_BACKFACES = false; //If a triangle has inverted winding order (the back) then it corrects that. Can cause issues as method is not ideal.
+	constexpr bool DRAW_BACKFACES = true; //If a triangle has inverted winding order (the back) then it corrects that. Can cause issues as method is not ideal.
 }
 
 #endif
