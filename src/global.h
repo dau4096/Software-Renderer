@@ -39,7 +39,7 @@ static inline bool compareTriData(structs::TriData* a, structs::TriData* b) {
 struct Span {
 	glm::ivec2 start;
 	size_t length;
-	unsigned int triIndex;
+	int triIndex;
 
 	inline void _clampSpanValues(int X, int Y, int len) {
 		start = glm::ivec2(
@@ -52,12 +52,12 @@ struct Span {
 
 	Span() : start(), length(0), triIndex(0) {}
 
-	Span(int X, int Y, int len, unsigned int tIdx)
+	Span(int X, int Y, int len, int tIdx)
 		: triIndex(tIdx) {
 			_clampSpanValues(X, Y, len);
 		}
 
-	Span(float X, int Y, int len, unsigned int tIdx)
+	Span(float X, int Y, int len, int tIdx)
 		: triIndex(tIdx) {
 			_clampSpanValues(int(round(X)), Y, len);
 		}
@@ -187,12 +187,12 @@ struct Edge {
 	glm::ivec2 start, end;
 	float sZ, eZ; //Z Values for ends.
 	float dx, currentX, dz, currentZ;
-	unsigned int triIndex;
+	int triIndex;
 	bool isLeftEdge;
 
 	Edge() : start(), end(), dx(), currentX(), triIndex(), isLeftEdge() {}
 
-	Edge(glm::vec3 s, glm::vec3 e, unsigned int tIdx, bool isLeft)
+	Edge(glm::vec3 s, glm::vec3 e, int tIdx, bool isLeft)
 		: triIndex(tIdx), sZ(s.z), eZ(e.z),
 		  currentZ(sZ), isLeftEdge(isLeft) {
 		  	glm::vec3 low = findLowest(s, e);

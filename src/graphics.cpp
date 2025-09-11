@@ -206,7 +206,7 @@ void placeholderPrepareGeometry() {
 	vertices.push_back(glm::vec3( 0.0f, 0.0f, 1.0f));
 	vertices.push_back(glm::vec3( 0.0f, 0.0f, 0.0f));
 	indices.push_back(glm::ivec4(0,1,2, 0));
-	//indices.push_back(glm::ivec4(0,2,3, 1));
+	indices.push_back(glm::ivec4(0,2,3, 1));
 
 
 
@@ -215,7 +215,7 @@ void placeholderPrepareGeometry() {
 	vertices.push_back(glm::vec3( 2.0f,-1.0f, 1.0f));
 	vertices.push_back(glm::vec3( 2.0f,-1.0f, 0.0f));
 	indices.push_back(glm::ivec4(4,5,6, 2));
-	//indices.push_back(glm::ivec4(4,6,7, 3));
+	indices.push_back(glm::ivec4(4,6,7, 3));
 
 
 
@@ -223,7 +223,7 @@ void placeholderPrepareGeometry() {
 	vertices.push_back(glm::vec3(-1.0f,-1.0f, 1.0f));
 	vertices.push_back(glm::vec3( 0.0f,-1.0f, 1.0f));
 	vertices.push_back(glm::vec3( 0.0f,-1.0f, 0.0f));
-	//indices.push_back(glm::ivec4(8, 9,10, 4));
+	indices.push_back(glm::ivec4(8, 9,10, 4));
 	indices.push_back(glm::ivec4(8,10,11, 5));
 }
 
@@ -364,13 +364,31 @@ void handleEdges(
 		glm::vec4 A = projectedVertices[compIndex.x];
 		glm::vec4 B = projectedVertices[compIndex.y];
 		glm::vec4 C = projectedVertices[compIndex.z];
+		int triIndex = compIndex.w;
 
 
 		glm::vec2 AB = glm::vec2(B - A);
 		glm::vec2 AC = glm::vec2(C - A);
 		glm::vec2 An = glm::vec2(AC.y, -AC.x);
-		bool isBackface = dot(An, AB) < 0.0f;
-		if (isBackface && !dev::DRAW_BACKFACES) {continue;}
+		bool isBackface = dot(An, AB) <= 0.0f;
+		if (isBackface && !dev::DRAW_BACKFACES) {
+			if (dev::REQUIRES_EDGES) {
+				triIndex = -1;
+			} else {
+				//This is a backface; and should not draw anything.
+				structs::Edge invalEdge = structs::Edge(
+					glm::vec3(0.0f, 0.0f, 0.0f),
+					glm::vec3(0.0f, 0.0f, 0.0f),
+					0u, false
+				);
+				unsigned int startIDX = (tIndex * 3);
+				edges[startIDX + 0] = invalEdge;
+				edges[startIDX + 1] = invalEdge;
+				edges[startIDX + 2] = invalEdge;			
+				tIndex++;
+				continue;
+			}
+		}
 
 
 		//Mark edges as screenspace left (starting a triangle) or right (ending a triangle)
@@ -378,9 +396,9 @@ void handleEdges(
 		std::sort(verts.begin(), verts.end(), [](auto& v1, auto& v2) {return v1.y < v2.y;});
 
 
-		structs::Edge longEdge = structs::Edge(verts[0], verts[2], compIndex.w, true);
-		structs::Edge shortEdgeA = structs::Edge(verts[0], verts[1], compIndex.w, false);
-		structs::Edge shortEdgeB = structs::Edge(verts[1], verts[2], compIndex.w, false);
+		structs::Edge longEdge = structs::Edge(verts[0], verts[2], triIndex, true);
+		structs::Edge shortEdgeA = structs::Edge(verts[0], verts[1], triIndex, false);
+		structs::Edge shortEdgeB = structs::Edge(verts[1], verts[2], triIndex, false);
 
 		float v1X = std::round(verts[1].x);
 		longEdge.calculateYScanValues(static_cast<size_t>(std::round(verts[1].y)));
@@ -479,21 +497,21 @@ bool manageStack(structs::Edge* thisEdge, structs::Span* thisSpan, unsigned int 
 			structs::TriData thisTri = triangleStack[index];
 			if (thisTri.triIndex == thisEdge->triIndex) {
 				//The same triangle that this edge closes.
-				thisTri.endX = thisEdge->currentX;
-				if ((index+1) < triangleStack.size()) {
-					triangleStack[index+1].startX = thisEdge->currentX;
+				if (index == 0u) {
+					thisTri.endX = thisEdge->currentX;
+					if ((index+1) < triangleStack.size()) {
+						triangleStack[index+1].startX = thisEdge->currentX;
+					}
+					*thisSpan = structs::Span(
+						thisTri, yScan
+					);
+					foundTriangle = true;
 				}
-				*thisSpan = structs::Span(
-					thisTri, yScan
-				);
 				triangleStack.erase(std::next(triangleStack.begin(), index));
-				foundTriangle = true;
 				break;
 			}
 		}
-		if (foundTriangle) {
-			return true;
-		}
+		return foundTriangle;
 	}
 	return false;
 }
@@ -506,6 +524,10 @@ void createSpans(
 	) {
 	std::vector<structs::Edge*> activeEdgesList; //Active edges, based on the above 2 vectors.
 	for (unsigned int yScan=0u; yScan<display::RENDER_RESOLUTION.y; yScan++) {
+		std::vector<structs::Span> spanStack;
+		triangleStack.clear();
+
+
 		//Add new lines that start on this scanline.
 		for (structs::Edge* thisEdge : edgeAdditions->at(yScan)) {
 			activeEdgesList.push_back(thisEdge);
@@ -525,33 +547,33 @@ void createSpans(
 
 		for (structs::Edge* thisEdge : activeEdgesList) {
 			thisEdge->calculateYScanValues(yScan);
-			if constexpr (dev::DRAW_EDGES || dev::DRAW_WIREFRAME) {
+			if constexpr (dev::REQUIRES_EDGES) {
 				frameBuffer.setPX(
 					thisEdge->currentX, yScan,
 					((thisEdge->isLeftEdge) ? display::EDGE_COLOUR_L : display::EDGE_COLOUR_R)
 				);
 			}
 		}
-		if constexpr (dev::DRAW_WIREFRAME) {continue;}
-		//Sort by left-to-right onscreen.
-		std::sort(activeEdgesList.begin(), activeEdgesList.end(), structs::compareEdges);
+		if constexpr (!(dev::DRAW_WIREFRAME)) {
+			//Sort by left-to-right onscreen.
+			std::sort(activeEdgesList.begin(), activeEdgesList.end(), structs::compareEdges);
 
 
-		std::vector<structs::Span> spanStack;
-		triangleStack.clear();
-		for (structs::Edge* thisEdge : activeEdgesList) {
-			structs::Span thisSpan;
-			bool success = manageStack(thisEdge, &thisSpan, yScan);
-			if (!success) {continue; /* Tri was not in stack. */}
-			spanStack.push_back(thisSpan);
+			for (structs::Edge* thisEdge : activeEdgesList) {
+				if ((thisEdge->triIndex == -1)) {continue;}
+				structs::Span thisSpan;
+				bool success = manageStack(thisEdge, &thisSpan, yScan);
+				if (!success) {continue; /* Tri was not in stack. */}
+				spanStack.push_back(thisSpan);
+			}
+
+
+			for (structs::Span& thisSpan : spanStack) {
+				frameBuffer.drawSpan(thisSpan, colourList.at(thisSpan.triIndex));
+			}
 		}
 
-
-		for (structs::Span& thisSpan : spanStack) {
-			frameBuffer.drawSpan(thisSpan, colourList.at(thisSpan.triIndex));
-		}
-
-		if constexpr (dev::DRAW_EDGES || dev::DRAW_WIREFRAME) {
+		if constexpr (dev::REQUIRES_EDGES) {
 			for (structs::Edge* thisEdge : activeEdgesList) {				
 				frameBuffer.setPX(
 					thisEdge->currentX, yScan,

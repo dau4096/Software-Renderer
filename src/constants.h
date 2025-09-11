@@ -9,6 +9,7 @@ namespace constants {
 	constexpr float HALF_PI = PI / 2.0f;
 	constexpr float TWO_PI = PI * 2.0f;
 	constexpr float EXP = 2.718282f;
+	constexpr float INF = 0xFFFFFFFF;
 
 	constexpr float TO_RAD = 0.017453f;
 	constexpr float TO_DEG = 57.295780f;
@@ -66,8 +67,9 @@ namespace dev {
 	constexpr bool DRAW_WIREFRAME = false; //Only draws edges. (Horizontal included)
 	constexpr bool SHOW_CORNERS = false; //Draws markers on each corner for visual coordinate reference
 
-	//Very unstable.
-	constexpr bool DRAW_BACKFACES = true; //If a triangle has inverted winding order (the back) then it corrects that. Can cause issues as method is not ideal.
+	constexpr bool REQUIRES_EDGES = DRAW_EDGES || DRAW_WIREFRAME;
+
+	constexpr bool DRAW_BACKFACES = false; //If a triangle has inverted winding order (the back) then it corrects that. Can cause issues as method is not ideal.
 }
 
 #endif
