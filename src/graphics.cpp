@@ -1,6 +1,8 @@
+#define TINYOBJLOADER_IMPLEMENTATION
 #include "includes.h"
 #include "global.h"
 #include "utils.h"
+#include "tiny_obj_loader.h"
 #include "stb_image.h"
 using namespace std;
 using namespace utils;
@@ -171,69 +173,86 @@ glm::mat4 getViewMatrix(structs::Camera& camera) {
 
 
 glm::mat4 getModelMatrix(glm::vec3 pos=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 rot=glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f)) {
-	glm::mat4 translationMat = glm::mat4(
-		1.0f, 	0.0f, 	0.0f, 	0.0f,
-		0.0f, 	1.0f, 	0.0f, 	0.0f,
-		0.0f, 	0.0f, 	1.0f, 	0.0f,
-		pos.x, 	pos.y, 	pos.z, 	1.0f
+	structs::Model tmpModel = structs::Model(
+		pos, rot, scale, 0u, 0u
 	);
-
-	float sx = sin(rot.x), cx = cos(rot.x);
-	float sy = sin(rot.y), cy = cos(rot.y);
-	float sz = sin(rot.z), cz = cos(rot.z);
-	glm::mat4 rotationMat = glm::mat4(
-		cy*cz, cy*sz, -sy, 0.0f,
-		sx*sy*cz-cx*sz, sx*sy*sz+cx*cz, sx*cy, 0.0f,
-		cx*sy*cz+sx*sz, cx*sy*sz-sx*cz, cx*cy, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	);
-
-	glm::mat4 scaleMat = glm::mat4(
-		scale.x,	0.0f, 		0.0f,		0.0f, 
-		0.0f, 		scale.y,	0.0f, 		0.0f, 
-		0.0f, 		0.0f, 		scale.z,	0.0f, 
-		0.0f, 		0.0f, 		0.0f, 		1.0f
-	);
-
-	return translationMat * rotationMat * scaleMat;
+	glm::mat4 modelMat = tmpModel.matrix; //Utilise the constructor's def for model matrices.
+	return modelMat;
 }
 
 
 
-void placeholderPrepareGeometry() {
-	vertices.push_back(glm::vec3(-1.0f, 0.0f, 0.0f));
-	vertices.push_back(glm::vec3(-1.0f, 0.0f, 1.0f));
-	vertices.push_back(glm::vec3( 0.0f, 0.0f, 1.0f));
-	vertices.push_back(glm::vec3( 0.0f, 0.0f, 0.0f));
-	indices.push_back(glm::ivec4(0,1,2, 0));
-	indices.push_back(glm::ivec4(0,2,3, 1));
+
+void loadModel(
+		const std::string& modelFileName,
+		glm::vec3 position=glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3 rotation=glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3 scale=glm::vec3(1.0f, 1.0f, 1.0f)
+	) {
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn;
+
+	structs::Model thisModel = structs::Model(position, rotation, scale, vertices.size(), 0u);
+	std::string filePath = "models/" + modelFileName + ".obj";
+
+	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, filePath.c_str(), nullptr, true);
+
+	if (!warn.empty()) std::cout << "TinyOBJ warning: " << warn << std::endl;
+	if (!ret) return;
 
 
+	unsigned int triIndex = 0u;
+	for (const auto& shape : shapes) {
+		std::unordered_map<int, int> indexMap;
+		unsigned int indexOffset = 0;
+		for (unsigned int f=0u; f<shape.mesh.num_face_vertices.size(); f++) {
+			int fv = shape.mesh.num_face_vertices[f];
+			if (fv != 3) {
+				indexOffset += fv;
+				continue;
+			}
 
-	vertices.push_back(glm::vec3( 1.0f, 0.0f, 0.0f));
-	vertices.push_back(glm::vec3( 1.0f, 0.0f, 1.0f));
-	vertices.push_back(glm::vec3( 2.0f,-1.0f, 1.0f));
-	vertices.push_back(glm::vec3( 2.0f,-1.0f, 0.0f));
-	indices.push_back(glm::ivec4(4,5,6, 2));
-	indices.push_back(glm::ivec4(4,6,7, 3));
+			glm::vec3 position;
+			for (unsigned int v=0; v<3; v++) {
+				tinyobj::index_t idx = shape.mesh.indices[indexOffset + v];
+
+				unsigned int vIdx = 3u * idx.vertex_index;
+				glm::vec3 pos = glm::vec3(
+					attrib.vertices[vIdx + 0u],
+					attrib.vertices[vIdx + 1u],
+					attrib.vertices[vIdx + 2u]
+				);
 
 
+				vertices.push_back(pos);
+			}
+			unsigned int vIdx = (triIndex * 3);
+			indices.push_back(glm::vec4(vIdx, vIdx+1u, vIdx+2u, triIndex));
+			triIndex++;
 
-	vertices.push_back(glm::vec3(-1.0f,-1.0f, 0.0f));
-	vertices.push_back(glm::vec3(-1.0f,-1.0f, 1.0f));
-	vertices.push_back(glm::vec3( 0.0f,-1.0f, 1.0f));
-	vertices.push_back(glm::vec3( 0.0f,-1.0f, 0.0f));
-	indices.push_back(glm::ivec4(8, 9,10, 4));
-	indices.push_back(glm::ivec4(8,10,11, 5));
+			indexOffset += fv;
+		}
+	}
+
+	thisModel.endIndex = vertices.size()-1;
+	models.push_back(thisModel);
+
 }
+
 
 
 void prepareGraphics() {
 	glEnable(GL_BLEND);
 
-	placeholderPrepareGeometry();
+	for (structs::ModelMeta& modelMeta : modelFiles) {
+		loadModel(
+			modelMeta.name, modelMeta.position,
+			modelMeta.rotation, modelMeta.scale
+		);
+	}
 	projMatrix = getProjectionMatrix(camera);
-	modelMatrix = getModelMatrix();
 
 	//Print some metrics.
 	std::cout << "Vertices: " << vertices.size() << std::endl;
@@ -341,15 +360,14 @@ glm::vec4 project(glm::vec3 vertex, glm::mat4 pvmMatrix) { //Could be moved to c
 
 void projectVertices() {
 	//Project vertices.
-	size_t vIndex = 0; //Could be a compute shader later.
-	for (glm::vec3 vertex : vertices) {
-		glm::vec4 proj = project(vertex, pvmMatrix);
-		if (proj == constants::INVALIDv4) {
-			projectedVertices[vIndex] = glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f);
-		} else {
-			projectedVertices[vIndex] = proj;
+	for (structs::Model thisModel : models) {
+		glm::mat4 pvmMatrix = pvMatrix * thisModel.matrix;
+
+		for (unsigned int vIndex=thisModel.startIndex; vIndex<=thisModel.endIndex; vIndex++) {
+			glm::vec3 vertex = vertices.at(vIndex);
+			glm::vec4 proj = project(vertex, pvmMatrix);
+			if (!(proj == constants::INVALIDv4)) {projectedVertices[vIndex] = proj;}
 		}
-		vIndex++;
 	}
 }
 
@@ -518,6 +536,15 @@ bool manageStack(structs::Edge* thisEdge, structs::Span* thisSpan, unsigned int 
 
 
 
+glm::uvec3 getRandomColour(unsigned int triIndex) {
+	if (triIndex >= rngColourList.size()) {
+		rngColourList.push_back(glm::uvec3(
+			utils::RNGc(), utils::RNGc(), utils::RNGc()
+		));
+	}
+	return rngColourList[triIndex];
+}
+
 void createSpans(
 		std::array<std::vector<structs::Edge*>, display::RENDER_RESOLUTION.y>* edgeAdditions,
 		std::array<std::vector<structs::Edge*>, display::RENDER_RESOLUTION.y>* edgeRemovals
@@ -569,7 +596,7 @@ void createSpans(
 
 
 			for (structs::Span& thisSpan : spanStack) {
-				frameBuffer.drawSpan(thisSpan, colourList.at(thisSpan.triIndex));
+				frameBuffer.drawSpan(thisSpan, getRandomColour(thisSpan.triIndex));
 			}
 		}
 
@@ -588,7 +615,7 @@ void createSpans(
 
 void draw() {
 	viewMatrix = graphics::getViewMatrix(camera);
-	pvmMatrix = projMatrix * viewMatrix * modelMatrix;
+	pvMatrix = projMatrix * viewMatrix;
 
 
 	if constexpr (dev::SHOW_CORNERS) {

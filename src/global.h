@@ -233,21 +233,82 @@ struct Camera {
 		  farZ(display::CAMERA_FAR_Z) {}
 };
 
+
+struct Model {
+	glm::vec3 position, rotation, scale;
+	glm::mat4 matrix;
+	unsigned int startIndex, endIndex;
+
+	Model() : position(), rotation(), scale(), matrix(), startIndex(), endIndex() {}
+
+	glm::mat4& recalculateMatrix() {
+		glm::mat4 translationMat = glm::mat4(
+			1.0f, 			0.0f,		 	0.0f,		 	0.0f,
+			0.0f, 			1.0f,		 	0.0f,		 	0.0f,
+			0.0f, 			0.0f,		 	1.0f,		 	0.0f,
+			position.x, 	position.y, 	position.z, 	1.0f
+		);
+
+		float sx = sin(rotation.x), cx = cos(rotation.x);
+		float sy = sin(rotation.y), cy = cos(rotation.y);
+		float sz = sin(rotation.z), cz = cos(rotation.z);
+		glm::mat4 rotationMat = glm::mat4(
+			cy*cz, 				cy*sz, 				-sy, 	0.0f,
+			sx*sy*cz-cx*sz, 	sx*sy*sz+cx*cz, 	sx*cy, 	0.0f,
+			cx*sy*cz+sx*sz, 	cx*sy*sz-sx*cz, 	cx*cy,	0.0f,
+			0.0f, 				0.0f, 				0.0f, 	1.0f
+		);
+
+		glm::mat4 scaleMat = glm::mat4(
+			scale.x,	0.0f, 		0.0f,		0.0f, 
+			0.0f, 		scale.y,	0.0f, 		0.0f, 
+			0.0f, 		0.0f, 		scale.z,	0.0f, 
+			0.0f, 		0.0f, 		0.0f, 		1.0f
+		);
+
+		matrix = translationMat * rotationMat * scaleMat;
+		return matrix;
+	}
+
+	Model(
+		glm::vec3 pos, glm::vec3 rot, glm::vec3 scl,
+		unsigned int sIDX, unsigned int eIDX
+	) : position(pos), rotation(rot), scale(scl),
+		startIndex(sIDX), endIndex(eIDX) {
+			recalculateMatrix();
+		}
+};
+
+
+struct ModelMeta { //For use in the model files vector. Only used to load models.
+	std::string name;
+	glm::vec3 position, rotation, scale;
+
+	ModelMeta() : name(), position(), rotation(), scale() {}
+
+	ModelMeta(std::string fileName, glm::vec3 pos, glm::vec3 rot, glm::vec3 scl)
+		: name(fileName), position(pos), rotation(rot), scale(scl) {}
+};
+
+
 }
 
 
 //Span-rendering specific values
 inline structs::FrameBuffer frameBuffer;
+inline std::vector<structs::Edge> edges;
 
 inline std::vector<glm::vec3> vertices;
 inline std::vector<glm::ivec4> indices;
 inline std::vector<glm::vec4> projectedVertices;
 
-inline std::vector<structs::Edge> edges;
+//Models
+inline std::vector<structs::Model> models;
+inline std::vector<structs::ModelMeta> modelFiles;
+
 
 inline glm::mat4 projMatrix;
-inline glm::mat4 modelMatrix;
-inline glm::mat4 viewMatrix, pvmMatrix;
+inline glm::mat4 viewMatrix, pvMatrix;
 
 
 inline structs::Camera camera;
@@ -277,15 +338,7 @@ inline std::unordered_map<int, bool> keyMap = []() {
 
 
 
-inline std::array<glm::uvec3, 7> colourList = {
-	glm::uvec3(255, 0, 0),
-	glm::uvec3(0, 255, 0),
-	glm::uvec3(0, 0, 255),
-	glm::uvec3(255, 255, 0),
-	glm::uvec3(0, 255, 255),
-	glm::uvec3(255, 0, 255),
-	glm::uvec3(255, 255, 255),
-};
+inline std::vector<glm::uvec3> rngColourList;
 
 
 
