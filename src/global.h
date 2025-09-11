@@ -20,10 +20,26 @@ struct Texture {
 };
 
 
+struct TriData {
+	int startX, endX;
+	unsigned int triIndex;
+	float depth;
+
+	TriData() : startX(), endX(), triIndex() {}
+
+	TriData(int sX, int eX, unsigned int tIdx, float d)
+		: startX(sX), endX(eX), triIndex(tIdx), depth(d) {}
+};
+
+static inline bool compareTriData(structs::TriData* a, structs::TriData* b) {
+	return a->depth < b->depth;
+}
+
+
 struct Span {
 	glm::ivec2 start;
 	size_t length;
-	size_t triIndex;
+	unsigned int triIndex;
 
 	inline void _clampSpanValues(int X, int Y, int len) {
 		start = glm::ivec2(
@@ -36,21 +52,26 @@ struct Span {
 
 	Span() : start(), length(0), triIndex(0) {}
 
-	Span(int X, int Y, int len, size_t tIdx)
+	Span(int X, int Y, int len, unsigned int tIdx)
 		: triIndex(tIdx) {
 			_clampSpanValues(X, Y, len);
 		}
 
-	Span(float X, int Y, int len, size_t tIdx)
+	Span(float X, int Y, int len, unsigned int tIdx)
 		: triIndex(tIdx) {
 			_clampSpanValues(int(round(X)), Y, len);
 		}
+
+	Span(TriData& thisTri, unsigned int yScan)
+		: triIndex(thisTri.triIndex) {
+			_clampSpanValues(thisTri.startX, yScan, thisTri.endX - thisTri.startX);
+	}
 };
 
 
 struct FrameBuffer {
 	std::vector<GLubyte> data;
-	unsigned int width, height, channels;
+	size_t width, height, channels;
 	GLuint GLTextureID;
 
 	FrameBuffer() : data(), width(0), height(0), channels(0), GLTextureID() {}
@@ -79,7 +100,7 @@ struct FrameBuffer {
 		}
 
 	void clear() {
-		data = std::vector<GLubyte>(width * height * channels);
+		std::fill(data.begin(), data.end(), 0);
 	}
 
 	GLubyte& operator[](size_t index) {
@@ -114,18 +135,18 @@ struct FrameBuffer {
 		);
 	}
 
-	void drawSpan(Span* span, glm::uvec3 colour=glm::uvec3(255, 0, 255)) {
+	void drawSpan(Span& span, glm::uvec3 colour=glm::uvec3(255, 0, 255)) {
 	    if (
-	        ((span->start.x + span->length) <= 0) || (span->start.x >= width) ||
-	        ((span->start.y < 0) || (span->start.y >= height))
+	        ((span.start.x + span.length) <= 0) || (span.start.x >= width) ||
+	        ((span.start.y < 0) || (span.start.y >= height))
 	    ) {
 	        return; //Span is not visible onscreen.
 	    }
 
-	    int visibleLength = span->length * channels;
+	    int visibleLength = span.length * channels;
 	    if (visibleLength <= 0) {return; /* Would attempt to write 0 bytes */}
 
-	    size_t startIdx = (span->start.x + (span->start.y * width)) * channels;
+	    size_t startIdx = (span.start.x + (span.start.y * width)) * channels;
 
 	    //Write the first pixel's RGB
 	    data[startIdx + 0] = static_cast<GLubyte>(colour.r);
@@ -166,14 +187,14 @@ struct Edge {
 	glm::ivec2 start, end;
 	float sZ, eZ; //Z Values for ends.
 	float dx, currentX, dz, currentZ;
-	size_t triIndex;
+	unsigned int triIndex;
+	bool isLeftEdge;
 
-	Edge() : start(), end(), dx(), currentX(), triIndex() {}
+	Edge() : start(), end(), dx(), currentX(), triIndex(), isLeftEdge() {}
 
-	Edge(glm::vec3 s, glm::vec3 e, size_t tIdx)
+	Edge(glm::vec3 s, glm::vec3 e, unsigned int tIdx, bool isLeft)
 		: triIndex(tIdx), sZ(s.z), eZ(e.z),
-		  currentZ(sZ) {
-
+		  currentZ(sZ), isLeftEdge(isLeft) {
 		  	glm::vec3 low = findLowest(s, e);
 		  	glm::vec3 high = findHighest(s, e);
 
@@ -186,15 +207,16 @@ struct Edge {
 			dz = (abs(delta.y) >= 1) ? (delta.z / delta.y) : 0.0f;
 		}
 
-	void calculateYScanValues(size_t yScan) {
-		float dy = float(yScan - start.y);
+	void calculateYScanValues(unsigned int yScan) {
+		float dy = static_cast<float>(yScan - start.y);
 		currentX = floor(start.x + (dx * dy) + 0.5f);
 		currentZ = sZ + (dz * dy);
 	}
 };
 
 static inline bool compareEdges(structs::Edge* a, structs::Edge* b) {
-	return a->currentX < b->currentX;
+	bool bothSameStartX = (a->currentX == b->currentX);
+	return (bothSameStartX && (a->isLeftEdge && !b->isLeftEdge)) || (a->currentX < b->currentX);
 }
 
 

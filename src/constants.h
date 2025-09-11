@@ -38,8 +38,11 @@ namespace config {
 
 namespace display {
 	//Resolutions
-	constexpr glm::ivec2 SCREEN_RESOLUTION = glm::ivec2(640, 480);
-	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(640, 480);
+	constexpr glm::ivec2 RENDER_RESOLUTION = glm::ivec2(640, 360);
+	constexpr glm::ivec2 SCREEN_RESOLUTION = RENDER_RESOLUTION * 2;
+
+	constexpr glm::uvec3 EDGE_COLOUR_L = glm::uvec3(255u, 255u, 127u);
+	constexpr glm::uvec3 EDGE_COLOUR_R = glm::uvec3(127u, 255u, 255u);
 
 	//Texture Standardisation
 	constexpr glm::ivec2 TEXTURE_RESOLUTION = glm::ivec2(128, 128);
@@ -55,11 +58,11 @@ namespace display {
 
 namespace dev {
 	//Assorted DEV/DEBUG constants
-	constexpr bool SHOW_FREQ = true; //Shows current refresh rate
+	constexpr bool SHOW_FREQ = false; //Shows current refresh rate
 
 
 	//Rendering options.
-	constexpr bool DRAW_EDGES = false; //Draws the Edge class instances over the triangles
+	constexpr bool DRAW_EDGES = true; //Draws the Edge class instances over the triangles
 	constexpr bool DRAW_WIREFRAME = false; //Only draws edges. (Horizontal included)
 	constexpr bool SHOW_CORNERS = false; //Draws markers on each corner for visual coordinate reference
 

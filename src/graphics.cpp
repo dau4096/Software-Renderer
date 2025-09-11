@@ -243,7 +243,7 @@ void prepareGraphics() {
 	//3 Edges for every triangle maximum.
 	//It may end up being 2 in reality of one edge is perfectly horizontal but such cases are rare and should assume all 3 are not horizontal.
 	//Such edges can simply not be added later and so are not processed.
-	edges = std::vector<structs::Edge>(indices.size() * 3);
+	edges = std::vector<structs::Edge>(indices.size() * 3u);
 
 
 
@@ -365,51 +365,137 @@ void handleEdges(
 		glm::vec4 B = projectedVertices[compIndex.y];
 		glm::vec4 C = projectedVertices[compIndex.z];
 
+
 		glm::vec2 AB = glm::vec2(B - A);
 		glm::vec2 AC = glm::vec2(C - A);
 		glm::vec2 An = glm::vec2(AC.y, -AC.x);
 		bool isBackface = dot(An, AB) < 0.0f;
+		if (isBackface && !dev::DRAW_BACKFACES) {continue;}
 
-		if (isBackface) {
-			if constexpr (!dev::DRAW_BACKFACES) {continue;}
-			//std::swap(B, C); //Make backface a pseudo-frontface
-			edges[(tIndex * 3) + 0] = structs::Edge(glm::vec3(B), glm::vec3(A), compIndex.w);
-			edges[(tIndex * 3) + 1] = structs::Edge(glm::vec3(C), glm::vec3(B), compIndex.w);
-			edges[(tIndex * 3) + 2] = structs::Edge(glm::vec3(A), glm::vec3(C), compIndex.w);
+
+		//Mark edges as screenspace left (starting a triangle) or right (ending a triangle)
+		std::array<glm::vec4,3> verts = {A,B,C};
+		std::sort(verts.begin(), verts.end(), [](auto& v1, auto& v2) {return v1.y < v2.y;});
+
+
+		structs::Edge longEdge = structs::Edge(verts[0], verts[2], compIndex.w, true);
+		structs::Edge shortEdgeA = structs::Edge(verts[0], verts[1], compIndex.w, false);
+		structs::Edge shortEdgeB = structs::Edge(verts[1], verts[2], compIndex.w, false);
+
+		float v1X = std::round(verts[1].x);
+		longEdge.calculateYScanValues(static_cast<size_t>(std::round(verts[1].y)));
+		if (v1X < longEdge.currentX) {
+			shortEdgeA.isLeftEdge = true; 
+			shortEdgeB.isLeftEdge = true;
+			longEdge.isLeftEdge = false;
+		} else {
+			shortEdgeA.isLeftEdge = false; 
+			shortEdgeB.isLeftEdge = false;
+			longEdge.isLeftEdge = true;
 		}
-		/*
-		A triangle has 3 edges. Add to the edges buffer.
-		  Λ
-		1/ \2
-		/___\
-		  3
-		*/
-		edges[(tIndex * 3) + 0] = structs::Edge(glm::vec3(A), glm::vec3(B), compIndex.w);
-		edges[(tIndex * 3) + 1] = structs::Edge(glm::vec3(B), glm::vec3(C), compIndex.w);
-		edges[(tIndex * 3) + 2] = structs::Edge(glm::vec3(C), glm::vec3(A), compIndex.w);
+
+		unsigned int startIDX = (tIndex * 3);
+		edges[startIDX + 0] = longEdge;
+		edges[startIDX + 1] = shortEdgeA;
+		edges[startIDX + 2] = shortEdgeB;
+
 		tIndex++;
 	}
 
 
 
-	//Sort edges.
-	size_t idx = 0;
+	//Add edge start/ends to the relevant datasets.
 	for (structs::Edge& e : edges) {
-		int yMin = glm::clamp(static_cast<int>(std::round(e.start.y)), 0, display::RENDER_RESOLUTION.y);
-		int yMax = glm::clamp(static_cast<int>(std::round(e.end.y)), 0, display::RENDER_RESOLUTION.y);
-		if (yMin == yMax) {idx++; continue; /* Ignore horizontal edges. */}
+		int yMin = glm::clamp(static_cast<int>(std::round(e.start.y)), 0, display::RENDER_RESOLUTION.y-1);
+		int yMax = glm::clamp(static_cast<int>(std::round(e.end.y + 1)), 0, display::RENDER_RESOLUTION.y-1);
+		if (yMin == yMax) {
+			continue; //Ignore horizontal edges.
+		}
 
 		//Find start of edge and add to relevant line of the additions vector.
-		if (yMin >= 0 && yMin < display::RENDER_RESOLUTION.y) {
+		if ((yMin >= 0) && (yMin < display::RENDER_RESOLUTION.y)) {
 			edgeAdditions->at(yMin).emplace_back(&e);
 		}
 
 		//Find end of edge and add to relevant line of the additions vector.
-		if (yMax >= 0 && yMax < display::RENDER_RESOLUTION.y) {
+		if ((yMax >= 0) && (yMax < display::RENDER_RESOLUTION.y)) {
 			edgeRemovals->at(yMax).emplace_back(&e);
 		}
-		idx++;
 	}
+}
+
+
+std::vector<structs::TriData> triangleStack;
+structs::TriData* getActiveTriangle() {
+    if (!triangleStack.empty()) {
+        return &triangleStack[0]; // pointer to real object in stack
+    }
+    return nullptr;
+}
+
+bool manageStack(structs::Edge* thisEdge, structs::Span* thisSpan, unsigned int yScan) {
+	structs::TriData* activeTriangle = getActiveTriangle();
+	bool hasActiveTriangle = activeTriangle != nullptr;
+	if (thisEdge->isLeftEdge) {
+		//Edge starts new triangle.
+		structs::TriData newTriangle = structs::TriData(
+			thisEdge->currentX, display::RENDER_RESOLUTION.x-1u,
+			thisEdge->triIndex, thisEdge->currentZ
+		);
+		if (!hasActiveTriangle) { //No triangles are currently active.
+			triangleStack.push_back(newTriangle);
+		} else {
+			//Must decide whether to occlude or be occluded by active triangle.
+			if (newTriangle.depth < activeTriangle->depth) {
+				activeTriangle->endX = thisEdge->currentX;
+				*thisSpan = structs::Span(
+					*activeTriangle, yScan
+				);
+
+				//New triangle occludes old. Create span for old and add new to start of stack.
+				triangleStack.insert(triangleStack.begin(), newTriangle);
+				return true;
+
+			} else {
+				//Add triangle to stack, in order of depth.
+				bool didAddTriangle = false;
+				for (unsigned int index=0u; index<triangleStack.size(); index++) {
+					if (triangleStack[index].depth > newTriangle.depth) {
+						triangleStack.insert(std::next(triangleStack.begin(), index), newTriangle);
+						didAddTriangle = true;
+						break;
+					}
+				}
+
+				if (!didAddTriangle) {
+					triangleStack.push_back(newTriangle);
+				}
+			}
+		}
+	} else {
+		//Edge ends a triangle.
+		bool foundTriangle = false;
+		for (unsigned int index=0u; index<triangleStack.size(); index++) {
+			structs::TriData thisTri = triangleStack[index];
+			if (thisTri.triIndex == thisEdge->triIndex) {
+				//The same triangle that this edge closes.
+				thisTri.endX = thisEdge->currentX;
+				if ((index+1) < triangleStack.size()) {
+					triangleStack[index+1].startX = thisEdge->currentX;
+				}
+				*thisSpan = structs::Span(
+					thisTri, yScan
+				);
+				triangleStack.erase(std::next(triangleStack.begin(), index));
+				foundTriangle = true;
+				break;
+			}
+		}
+		if (foundTriangle) {
+			return true;
+		}
+	}
+	return false;
 }
 
 
@@ -419,15 +505,15 @@ void createSpans(
 		std::array<std::vector<structs::Edge*>, display::RENDER_RESOLUTION.y>* edgeRemovals
 	) {
 	std::vector<structs::Edge*> activeEdgesList; //Active edges, based on the above 2 vectors.
-	for (size_t yScan=0; yScan<display::RENDER_RESOLUTION.y; yScan++) {
+	for (unsigned int yScan=0u; yScan<display::RENDER_RESOLUTION.y; yScan++) {
 		//Add new lines that start on this scanline.
-		for (structs::Edge* e : edgeAdditions->at(yScan)) {
-			activeEdgesList.push_back(e);
+		for (structs::Edge* thisEdge : edgeAdditions->at(yScan)) {
+			activeEdgesList.push_back(thisEdge);
 		}
 
 		//Remove lines that stop on this scanline
-		for (structs::Edge* e : edgeRemovals->at(yScan)) {
-			auto it = std::find(activeEdgesList.begin(), activeEdgesList.end(), e);
+		for (structs::Edge* thisEdge : edgeRemovals->at(yScan)) {
+			auto it = std::find(activeEdgesList.begin(), activeEdgesList.end(), thisEdge);
 			if (it != activeEdgesList.end()) {
 				activeEdgesList.erase(it);
 			}
@@ -436,56 +522,41 @@ void createSpans(
 		//Handle the lines?
 		size_t numActiveEdges = activeEdgesList.size();
 		if (numActiveEdges < 1) {continue; /* No active edges for this scanline. */}
-		std::vector<structs::Span> spans;
 
-		for (structs::Edge* edge : activeEdgesList) {
-			edge->calculateYScanValues(yScan);
-			if (dev::DRAW_EDGES || dev::DRAW_WIREFRAME) {frameBuffer.setPX(edge->currentX, yScan, glm::uvec3(255, 0, 255));}
+		for (structs::Edge* thisEdge : activeEdgesList) {
+			thisEdge->calculateYScanValues(yScan);
+			if constexpr (dev::DRAW_EDGES || dev::DRAW_WIREFRAME) {
+				frameBuffer.setPX(
+					thisEdge->currentX, yScan,
+					((thisEdge->isLeftEdge) ? display::EDGE_COLOUR_L : display::EDGE_COLOUR_R)
+				);
+			}
 		}
+		if constexpr (dev::DRAW_WIREFRAME) {continue;}
 		//Sort by left-to-right onscreen.
 		std::sort(activeEdgesList.begin(), activeEdgesList.end(), structs::compareEdges);
 
-		//Create spans based on each edge in the scanline.
-		structs::Edge* prevEdge = nullptr;
+
+		std::vector<structs::Span> spanStack;
+		triangleStack.clear();
 		for (structs::Edge* thisEdge : activeEdgesList) {
-			if (prevEdge == nullptr) {
-				prevEdge = thisEdge;
-				continue;
-			}
-
-			if (prevEdge->triIndex == thisEdge->triIndex) {
-				//Closes off previous triangle.
-				spans.push_back(structs::Span(
-					prevEdge->currentX, yScan,
-					size_t(round(thisEdge->currentX - prevEdge->currentX)),
-					prevEdge->triIndex
-				));
-				prevEdge = nullptr;
-				continue; //Renders void from here.
-			}
-
-			//Another triangle's edge has come next instead.
-			//Do some Z testing with ->currentZ values to get thisEdgeCloser value.
-			bool thisEdgeCloser = ( //Not even close to correct. But works for testing.
-				prevEdge->currentZ > thisEdge->currentZ
-			);
-
-			if (thisEdgeCloser) {
-				spans.push_back(structs::Span(
-					prevEdge->currentX, yScan,
-					size_t(round(thisEdge->currentX - prevEdge->currentX)),
-					prevEdge->triIndex
-				));
-				prevEdge = thisEdge;
-				continue;
-			}
+			structs::Span thisSpan;
+			bool success = manageStack(thisEdge, &thisSpan, yScan);
+			if (!success) {continue; /* Tri was not in stack. */}
+			spanStack.push_back(thisSpan);
 		}
 
 
-		if (spans.size() < 1) {continue; /* No spans to draw. */}
-		for (structs::Span span : spans) {
-			if (!dev::DRAW_WIREFRAME) {
-				frameBuffer.drawSpan(&span, colourList.at(span.triIndex));
+		for (structs::Span& thisSpan : spanStack) {
+			frameBuffer.drawSpan(thisSpan, colourList.at(thisSpan.triIndex));
+		}
+
+		if constexpr (dev::DRAW_EDGES || dev::DRAW_WIREFRAME) {
+			for (structs::Edge* thisEdge : activeEdgesList) {				
+				frameBuffer.setPX(
+					thisEdge->currentX, yScan,
+					((thisEdge->isLeftEdge) ? glm::uvec3(255u, 255u, 127u) : glm::uvec3(127u, 255u, 255u))
+				);
 			}
 		}
 	}
