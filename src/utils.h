@@ -4,10 +4,6 @@
 #include "includes.h"
 #include "constants.h"
 #include "global.h"
-#include <vector>
-#include <stdexcept>
-#include <C:/Users/User/Documents/code/.cpp/glm/glm.hpp>
-#include "C:/Users/User/Documents/code/.cpp/stb_image_write.h"
 
 using namespace std;
 

@@ -2,7 +2,6 @@
 #define CONSTANTS_H
 
 #include "includes.h"
-#include <glm/glm.hpp>
 namespace constants {
 	//Mathematical Constants
 	constexpr float PI = 3.141593f;

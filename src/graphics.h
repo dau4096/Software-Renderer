@@ -3,7 +3,6 @@
 
 #include "includes.h"
 #include "global.h"
-#include <array>
 
 namespace graphics {
 

@@ -128,11 +128,11 @@ GLuint compileShader(GLenum shaderType, std::string filePath, bool hasInclude=fa
 GLuint createShaderProgram(std::string name, bool hasVertexSource=true, bool hasInclude=false, std::string includeName="") {
 	GLuint vertexShader;
 	if (hasVertexSource) {
-		vertexShader = compileShader(GL_VERTEX_SHADER, "src\\shaders\\"+ name +".vert");
+		vertexShader = compileShader(GL_VERTEX_SHADER, "src/shaders/"+ name +".vert");
 	} else {
-		vertexShader = compileShader(GL_VERTEX_SHADER, "src\\shaders\\generic.vert");
+		vertexShader = compileShader(GL_VERTEX_SHADER, "src/shaders/generic.vert");
 	}
-	GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, "src\\shaders\\"+ name +".frag", hasInclude, includeName);
+	GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, "src/shaders/"+ name +".frag", hasInclude, includeName);
 
 	GLuint shaderProgram = glCreateProgram();
 	glAttachShader(shaderProgram, vertexShader);
