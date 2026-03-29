@@ -49,7 +49,7 @@ echo
 
 #Run
 cd "$(dirname "$0")"
-./app
+./prgm
 
 #Error?
 if [[ $? -ne 0 ]]; then

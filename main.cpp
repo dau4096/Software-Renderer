@@ -1,6 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "src/stb_image.h"
+#include <stb_image.h>
 #include "src/includes.h"
 #include "src/global.h"
 #include "src/graphics.h"
@@ -59,7 +59,7 @@ int main() {
 
 	//Models setup;
 	modelFiles.push_back(structs::ModelMeta(
-		"wheel_test", glm::vec3(0.0f, 0.0f, 0.0f),
+		"cube", glm::vec3(0.0f, 0.0f, 0.0f),
 		glm::vec3(1.57f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f)
 	));
 

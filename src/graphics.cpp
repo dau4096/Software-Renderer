@@ -2,8 +2,8 @@
 #include "includes.h"
 #include "global.h"
 #include "utils.h"
-#include "tiny_obj_loader.h"
-#include "stb_image.h"
+#include <tiny_obj_loader.h>
+#include <stb_image.h>
 using namespace std;
 using namespace utils;
 using namespace glm;

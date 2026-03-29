@@ -16,6 +16,6 @@ IF EXIST "main.o" (
 
 REM Compile.
 mingw32-make
-REM Wait for user, then start app.exe.
+REM Wait for user, then start prgm.exe.
 PAUSE
-start app.exe
+start prgm.exe

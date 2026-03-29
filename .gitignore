@@ -26,13 +26,8 @@
 *.lib
 
 # Compiled programs
-app
+prgm
 *.exe
 
 notes.md
 *.obj
-
-
-# External headers
-stb_image*.h
-tiny_obj_loader.h
